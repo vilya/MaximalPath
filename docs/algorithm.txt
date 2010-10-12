@@ -1,0 +1,40 @@
+Overall
+=======
+
+- Parse graph & build adjacency matrix.
+- Get the number of paths, N, to print from the nodes input file.
+- For each remaining line in the nodes input file:
+  - Parse a start node S
+  - Find the first N maximal paths from the start node S and print them out
+  - Calculate the number of maximal paths from the start node and print it out.
+
+
+Finding the number of maximal paths
+===================================
+
+- Depth first search?
+  - How to parallelise it efficiently?
+- May be able to accelerate the counting by recording the number of outgoing edges from each node?
+
+
+Data structures
+===============
+
+- Graph data structure
+  - Traversal must be as fast as possible.
+  - Adjacency matrix is likely to be the quickest.
+  - Using a bit-field representation, would only require about 11 Mb for the
+    largest allowed graph.
+
+- Path data structure
+  - Need to be able to quickly check whether a node is already on the path.
+  - Order of nodes in the path is important
+  - Store as a combination of bit-mask and node list?
+
+
+Notes
+=====
+
+- May be quicker to have separate functions for counting all paths and for printing the first N paths?
+- Can we calculate prefix and/or suffix path lists for each node as a way to speed things up?
+
