@@ -6,7 +6,7 @@
 
 LIBS = -ltbb
 
-CXXFLAGS = -g3 -Wall
+CXXFLAGS = -O3 -Wall
 CXX = g++
 
 
