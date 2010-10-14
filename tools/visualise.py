@@ -4,6 +4,7 @@ import os, sys
 def main():
   if len(sys.argv) != 2:
     print >> sys.stderr, "Usage: %s <graph>" % sys.argv[0]
+    sys.exit(-1)
   
   outname = os.path.splitext(os.path.basename(sys.argv[1]))[0]
   tmp = '.tmp-' + outname + '.dot'
@@ -19,10 +20,10 @@ def main():
         print >> out, '}'
 
     pdfname = outname + '.pdf'
-    dotcmd = '/usr/bin/dot -Tpdf -o%s %s' % (pdfname, tmp)
+    dotcmd = 'dot -Tpdf -o%s %s' % (pdfname, tmp)
     ret = os.system(dotcmd)
     if ret != 0:
-      raise Exception("/usr/bin/dot exited with return code %d" % ret)
+      raise Exception("dot exited with return code %d" % ret)
     print >> sys.stderr, "%s created" % pdfname
   finally:
     if os.path.exists(tmp):
