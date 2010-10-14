@@ -2,6 +2,8 @@
   - I guess we can discard them because you can never have a repeated vertex in
     a maximal path anyway?
 
+- Are duplicate edges allowed?
+
 - Any limits on the size of the graph?
   - Clearly the number of nodes is limited to (26 ** 3).
   - What about the number of edges?
