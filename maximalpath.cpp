@@ -35,7 +35,7 @@ struct Graph {
   }
 
 
-  inline unsigned int nodeIndex(const char* label) const
+  inline unsigned short nodeIndex(const char* label) const
   {
     return ((label[0] - 'A') * 26 + label[1] - 'A') * 26 + label[2] - 'A';
   }
@@ -55,15 +55,9 @@ struct Graph {
 // Forward declarations
 //
 
-bool ParseGraph(const char* filename);
-bool ParseNodes(const char* filename, unsigned int& numPaths, std::vector<unsigned int>& startNodes);
-
-
-//
-// Globals
-//
-
-Graph gGraph;
+bool ParseGraph(const char* filename, Graph& g);
+bool ParseNodes(const char* filename, Graph& g);
+uint64_t MaximalPaths(const Graph& g);
 
 
 //
@@ -104,8 +98,18 @@ bool ParseNodes(const char* filename, Graph& g)
   while (fgets(line, 5, f) != NULL)
     g.startNodes.push_back(g.nodeIndex(line));
 
+  for (unsigned int i = 0; i < kMaxNodes; ++i)
+    std::sort(g.edges[i].begin(), g.edges[i].end());
+
   fclose(f);
   return true;
+}
+
+
+uint64_t MaximalPaths(const Graph& g)
+{
+  // TODO
+  return 0;
 }
 
 
@@ -119,16 +123,19 @@ int main(int argc, char** argv)
   // Start timing.
   tbb::tick_count startTime = tbb::tick_count::now();
   
+  Graph graph;
+
   // Parse the graph.
-  if (!ParseGraph(argv[1], gGraph))
+  if (!ParseGraph(argv[1], graph))
     return -2;
 
   // Parse the nodes file.
-  if (!ParseNodes(argv[2], gGraph))
+  if (!ParseNodes(argv[2], graph))
     return -3;
 
-  // For each start node
-  //    Calculate and print the maximal paths
+  // Calculate and print the maximal paths
+  MaximalPaths(graph);
+
   // Print the results.
 
   // Stop timing.
