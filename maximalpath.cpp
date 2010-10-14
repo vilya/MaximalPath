@@ -10,63 +10,67 @@
 
 
 //
-// Typedefs
-//
-
-typedef uint64_t EdgeChunk;
-
-
-//
 // Constants
 //
 
 const unsigned int kMaxNodes = 26 * 26 * 26;
-const unsigned int kEdgeChunkBits = sizeof(EdgeChunk) * 8;
-const unsigned int kEdgeChunkShift = __builtin_ctz(kEdgeChunkBits);
-const unsigned int kEdgeChunkMask = kEdgeChunkBits - 1;
-const unsigned int kNumEdgeChunks = kMaxNodes / kEdgeChunkBits + 1;
 
 
 //
-// Globals
+// Classes
 //
 
-EdgeChunk gEdges[kMaxNodes][kNumEdgeChunks];
-unsigned int gEdgeCounts[kMaxNodes];
-// Maybe have a per-node list of which chunks contain edges, so that we can iterate through the edges more quickly?
-// Maybe it would actually be better to have an explicit list of connected nodes? Would only use more memory if every node had, on average, 1099 or more edges.
-// Note that node indexes only require 15 bits to represent, so they fit comfortably into an unsigned short (or a signed one).
+struct Graph {
+  // Note that node indexes only require 15 bits to represent, so they fit
+  // comfortably into an unsigned short (or a signed one).
+  std::vector<unsigned short> edges[kMaxNodes];
+  std::vector<unsigned short> startNodes;
+  unsigned int pathsToPrint;
+
+
+  Graph()  
+  {
+    for (unsigned int i = 0; i < kMaxNodes; ++i)
+      edges[i].reserve(8);
+  }
+
+
+  inline unsigned int nodeIndex(const char* label) const
+  {
+    return ((label[0] - 'A') * 26 + label[1] - 'A') * 26 + label[2] - 'A';
+  }
+
+
+  inline void addEdge(const char* fromLabel, const char* toLabel)
+  {
+    unsigned int from = nodeIndex(fromLabel);
+    unsigned int to = nodeIndex(toLabel);
+    edges[from].push_back(to);
+    edges[to].push_back(from);
+  }
+};
 
 
 //
 // Forward declarations
 //
 
-unsigned int NodeIndex(const char* label);
-void AddEdge(unsigned int from, unsigned int to);
 bool ParseGraph(const char* filename);
 bool ParseNodes(const char* filename, unsigned int& numPaths, std::vector<unsigned int>& startNodes);
+
+
+//
+// Globals
+//
+
+Graph gGraph;
 
 
 //
 // Functions
 //
 
-inline unsigned int NodeIndex(const char* label)
-{
-  return ((label[0] - 'A') * 26 + label[1] - 'A') * 26 + label[2] - 'A';
-}
-
-
-inline void AddEdge(unsigned int from, unsigned int to)
-{
-  unsigned int itemNum = to >> kEdgeChunkShift;
-  unsigned int itemBit = to & kEdgeChunkMask;
-  gEdges[from][itemNum] |= itemBit;
-}
-
-
-bool ParseGraph(const char* filename)
+bool ParseGraph(const char* filename, Graph& g)
 {
   FILE* f = fopen(filename, "r");
   if (f == NULL) {
@@ -74,25 +78,16 @@ bool ParseGraph(const char* filename)
     return false;
   }
 
-  memset(gEdges, 0, sizeof(gEdges));
-  memset(gEdgeCounts, 0, sizeof(gEdgeCounts));
-
   char line[10];
-  while (fgets(line, 10, f) != NULL) {
-    unsigned int from = NodeIndex(line);
-    unsigned int to = NodeIndex(line + 3);
-    AddEdge(from, to);
-    AddEdge(to, from);
-    ++gEdgeCounts[from];
-    ++gEdgeCounts[to];
-  }
+  while (fgets(line, 10, f) != NULL)
+    g.addEdge(line, line + 3);
 
   fclose(f);
   return true;
 }
 
 
-bool ParseNodes(const char* filename, unsigned int& numPaths, std::vector<unsigned int>& startNodes)
+bool ParseNodes(const char* filename, Graph& g)
 {
   FILE* f = fopen(filename, "r");
   if (f == NULL) {
@@ -103,11 +98,11 @@ bool ParseNodes(const char* filename, unsigned int& numPaths, std::vector<unsign
   char line[32];
 
   fgets(line, 32, f);
-  numPaths = (unsigned int)atoi(line);
+  g.pathsToPrint = (unsigned int)atoi(line);
 
-  startNodes.clear();
+  g.startNodes.clear();
   while (fgets(line, 5, f) != NULL)
-    startNodes.push_back(NodeIndex(line));
+    g.startNodes.push_back(g.nodeIndex(line));
 
   fclose(f);
   return true;
@@ -125,13 +120,11 @@ int main(int argc, char** argv)
   tbb::tick_count startTime = tbb::tick_count::now();
   
   // Parse the graph.
-  if (!ParseGraph(argv[1]))
+  if (!ParseGraph(argv[1], gGraph))
     return -2;
 
   // Parse the nodes file.
-  unsigned int numPaths = 0;
-  std::vector<unsigned int> startNodes;
-  if (!ParseNodes(argv[2], numPaths, startNodes))
+  if (!ParseNodes(argv[2], gGraph))
     return -3;
 
   // For each start node
