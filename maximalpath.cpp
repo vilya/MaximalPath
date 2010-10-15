@@ -57,7 +57,10 @@ struct Graph {
 
 bool ParseGraph(const char* filename, Graph& g);
 bool ParseNodes(const char* filename, Graph& g);
-uint64_t MaximalPaths(const Graph& g);
+void PrintPath(const std::vector<unsigned short>& path);
+bool InPath(const std::vector<unsigned short>& path, unsigned short node);
+uint64_t PathsFrom(const Graph& g, std::vector<unsigned short>& path, uint64_t count);
+void MaximalPaths(const Graph& g);
 
 
 //
@@ -106,10 +109,75 @@ bool ParseNodes(const char* filename, Graph& g)
 }
 
 
-uint64_t MaximalPaths(const Graph& g)
+// FIXME: this function is not threadsafe!
+const char* NodeLabel(unsigned short node)
 {
-  // TODO
-  return 0;
+  static char sLabel[4] = { 0, 0, 0, 0 };
+  sLabel[0] = (node / 676) + 'A';
+  sLabel[1] = ((node / 26) % 26) + 'A';
+  sLabel[2] = (node % 26) + 'A';
+  return sLabel;
+}
+
+
+void PrintPath(const std::vector<unsigned short>& path)
+{
+  const unsigned int kLength = path.size();
+  const unsigned short* kNodes = path.data();
+
+  for (unsigned int i = 0; i < kLength; ++i)
+    printf("%s", NodeLabel(kNodes[i]));
+  printf("\n");
+}
+
+
+bool InPath(const std::vector<unsigned short>& path, unsigned short node)
+{
+  return std::find(path.begin(), path.end(), node) != path.end();
+}
+
+
+uint64_t PathsFrom(const Graph& g, std::vector<unsigned short>& path, uint64_t count)
+{
+  unsigned short node = path.back();
+  
+  const unsigned int kNumEdges = g.edges[node].size();
+  const unsigned short* kEdges = g.edges[node].data();
+
+  if (kNumEdges > 0) {
+    uint64_t newCount = 0;
+    for (unsigned int i = 0; i < kNumEdges; ++i) {
+      unsigned short nextNode = kEdges[i];
+      if (!InPath(path, nextNode)) {
+        path.push_back(kEdges[i]);
+        newCount += PathsFrom(g, path, count + newCount);
+        path.pop_back();
+      }
+    }
+    if (newCount > 0)
+      return newCount;
+  }
+
+  if (count < g.pathsToPrint)
+    PrintPath(path);
+
+  return 1;
+}
+
+
+void MaximalPaths(const Graph& g)
+{
+  std::vector<unsigned short> path;
+  path.reserve(17576);
+  for (unsigned int i = 0; i < g.startNodes.size(); ++i) {
+    printf("First %u lexicographic paths from %s:\n", g.pathsToPrint, NodeLabel(g.startNodes[i]));
+
+    path.push_back(g.startNodes[i]);
+    uint64_t count = PathsFrom(g, path, 0);
+    path.pop_back();
+    
+    printf("Total maximal paths starting from %s: %lu\n\n", NodeLabel(g.startNodes[i]), (unsigned long int)count);
+  }
 }
 
 
