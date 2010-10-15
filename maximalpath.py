@@ -64,7 +64,7 @@ def MaximalPath(graph, start, num, path=[], count=0):
           raise Exception("Aborted")
 
     if count < num:
-      print " -> ".join(path)
+      print "".join(path).upper()
 
     return 1
   except KeyboardInterrupt:
