@@ -6,6 +6,7 @@ def main():
     sys.exit(-1)
   
   graph = {}
+  edgeCount = 0
   with open(sys.argv[1]) as f:
     for line in f:
       line = line.upper()
@@ -13,16 +14,19 @@ def main():
       toNode = line[3:6]
 
       if fromNode not in graph:
-        graph[fromNode] = set([toNode])
+        graph[fromNode] = [toNode]
       else:
-        graph[fromNode].add(toNode)
+        graph[fromNode].append(toNode)
 
       if toNode not in graph:
-        graph[toNode] = set([fromNode])
+        graph[toNode] = [fromNode]
       else:
-        graph[toNode].add(fromNode)
+        graph[toNode].append(fromNode)
+
+      edgeCount += 1
 
   print "%d nodes" % len(graph)
+  print "%d edges" % edgeCount
   print "%d to %d edges per node" % (
     min([len(edges) for _, edges in graph.iteritems()]),
     max([len(edges) for _, edges in graph.iteritems()])
