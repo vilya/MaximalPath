@@ -12,7 +12,7 @@ def main():
   try:
     with open(tmp, 'w') as out:
       with open(sys.argv[1]) as f:
-        print >> out, 'graph "%s" {'
+        print >> out, 'graph "%s" {' % outname
         for line in f:
           line = line.strip()
           fromNode, toNode = line[:3], line[3:]
