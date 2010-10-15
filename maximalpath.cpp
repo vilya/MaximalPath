@@ -71,7 +71,7 @@ bool ParseGraph(const char* filename, Graph& g)
 {
   FILE* f = fopen(filename, "r");
   if (f == NULL) {
-    fprintf(stderr, "Error opening %s: %s\n", filename, strerror(ferror(f)));
+    fprintf(stderr, "Error opening %s\n", filename);
     return false;
   }
 
@@ -88,7 +88,7 @@ bool ParseNodes(const char* filename, Graph& g)
 {
   FILE* f = fopen(filename, "r");
   if (f == NULL) {
-    fprintf(stderr, "Error opening %s: %s\n", filename, strerror(ferror(f)));
+    fprintf(stderr, "Error opening %s\n", filename);
     return false;
   }
 
