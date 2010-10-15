@@ -1,5 +1,6 @@
 import random, sys
 
+
 def MakeNodes(numNodes):
   letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
   nodes = set([])
@@ -15,12 +16,25 @@ def MakeEdges(nodes, numEdges):
   while numEdges > 0:
     fromNode = random.choice(nodes)
     toNode = random.choice(nodes)
+
+    # Reject self edges.
+    if fromNode == toNode:
+      continue
+
+    # Reject duplicate edges.
+    if fromNode in edges and toNode in edges[fromNode]:
+      continue
+    if toNode in edges and fromNode in edges[toNode]:
+      continue
+
     if fromNode not in edges:
-      edges[fromNode] = set([toNode])
-      numEdges -= 1
-    elif toNode not in edges[fromNode]:
-      edges[fromNode].add(toNode)
-      numEdges -= 1
+      edges[fromNode] = set([])
+    if toNode not in edges:
+      edges[toNode] = set([])
+
+    edges[fromNode].add(toNode)
+    numEdges -= 1
+
   return edges
 
 
