@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import sys
 import time
 
@@ -63,8 +64,8 @@ def MaximalPath(graph, start, num, path=[], count=0):
           print "\n%d paths found so far" % (count + newCount)
           raise Exception("Aborted")
 
-    if count < num:
-      print "".join(path).upper()
+    #if count < num:
+    print "".join(path).upper()
 
     return 1
   except KeyboardInterrupt:
