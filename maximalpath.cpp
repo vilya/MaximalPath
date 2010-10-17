@@ -120,6 +120,24 @@ const char* NodeLabel(unsigned short node)
 }
 
 
+void PrintGraph(Graph& g)
+{
+  for (unsigned short i = 0; i < kMaxNodes; ++i) {
+    if (g.edges[i].size() == 0)
+      continue;
+
+    if (g.edges[i][0] == i)
+      printf("dodgy!\n");
+
+    printf("%s: ", NodeLabel(i));
+    printf("%s", NodeLabel(g.edges[i][0]));
+    for (unsigned int j = 1; j < g.edges[i].size(); ++j)
+      printf(", %s", NodeLabel(g.edges[i][j]));
+    printf("\n");
+  }
+}
+
+
 void PrintPath(const std::vector<unsigned short>& path)
 {
   const unsigned int kLength = path.size();
@@ -196,6 +214,7 @@ int main(int argc, char** argv)
   // Parse the graph.
   if (!ParseGraph(argv[1], graph))
     return -2;
+  //PrintGraph(graph);
 
   // Parse the nodes file.
   if (!ParseNodes(argv[2], graph))
