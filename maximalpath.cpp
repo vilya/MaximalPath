@@ -65,7 +65,9 @@ bool ParseNodes(const char* filename, Graph& g);
 const char* NodeLabel(unsigned short node);
 void PrintGraph(const Graph& g);
 void PrintPath(const std::vector<unsigned short>& path);
-uint64_t PathsFrom(Graph& g, std::vector<unsigned short>& path, uint64_t count);
+//uint64_t PathsFrom(Graph& g, std::vector<unsigned short>& path, uint64_t count);
+//void MaximalPaths(Graph& g);
+uint64_t PathsFrom(Graph& g, unsigned short node, uint64_t count);
 void MaximalPaths(Graph& g);
 
 
@@ -155,6 +157,7 @@ void PrintPath(const std::vector<unsigned short>& path)
 }
 
 
+/*
 uint64_t PathsFrom(Graph& g, std::vector<unsigned short>& path, uint64_t count)
 {
   unsigned short node = path.back();
@@ -175,9 +178,9 @@ uint64_t PathsFrom(Graph& g, std::vector<unsigned short>& path, uint64_t count)
     g.visited[nextNode] = false;
   }
 
-  if (newCount == 0 && count < g.pathsToPrint)
-    PrintPath(path);
-
+  //if (newCount == 0 && count < g.pathsToPrint)
+  //  PrintPath(path);
+  
   return (newCount > 0) ? newCount : 1;
 }
 
@@ -194,6 +197,40 @@ void MaximalPaths(Graph& g)
     uint64_t count = PathsFrom(g, path, 0);
     g.visited[g.startNodes[i]] = false;
     path.pop_back();
+    
+    printf("Total maximal paths starting from %s: %lu\n\n", NodeLabel(g.startNodes[i]), (unsigned long int)count);
+  }
+}
+*/
+
+
+uint64_t PathsFrom(Graph& g, unsigned short node)
+{
+  const unsigned int kNumEdges = g.edges[node].size();
+  const unsigned short* kEdges = g.edges[node].data();
+
+  uint64_t newCount = 0;
+  for (unsigned int i = 0; i < kNumEdges; ++i) {
+    unsigned short nextNode = kEdges[i];
+    if (g.visited[nextNode])
+      continue;
+    g.visited[nextNode] = true;
+    newCount += PathsFrom(g, nextNode);
+    g.visited[nextNode] = false;
+  }
+
+  return newCount ? newCount : 1;
+}
+
+
+void MaximalPaths(Graph& g)
+{
+  for (unsigned int i = 0; i < g.startNodes.size(); ++i) {
+    printf("First %u lexicographic paths from %s:\n", g.pathsToPrint, NodeLabel(g.startNodes[i]));
+
+    g.visited[g.startNodes[i]] = true;
+    uint64_t count = PathsFrom(g, g.startNodes[i]);
+    g.visited[g.startNodes[i]] = false;
     
     printf("Total maximal paths starting from %s: %lu\n\n", NodeLabel(g.startNodes[i]), (unsigned long int)count);
   }
