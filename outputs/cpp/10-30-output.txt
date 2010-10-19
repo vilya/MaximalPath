@@ -1,0 +1,10 @@
+First 2 lexicographic paths from CHA:
+CHAFSWEXCKZDHZIOEENHPNNRPJEQKL
+CHAFSWEXCKZDHZIOEENHPQKLPJENNR
+Total maximal paths starting from CHA: 10115
+
+First 2 lexicographic paths from KZD:
+KZDCHAFSWEXCNNRNHPOEEHZIPJEQKL
+KZDCHAFSWEXCNNRNHPOEEHZIQKLPJE
+Total maximal paths starting from KZD: 9741
+

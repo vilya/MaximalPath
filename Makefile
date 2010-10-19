@@ -9,11 +9,31 @@ LIBS = -ltbb
 CXXFLAGS = -O3 -Wall
 CXX = g++
 
+CPP_RESULTS  = $(patsubst testdata/%-graph.txt,outputs/cpp/%-output.txt,$(wildcard testdata/*-graph.txt))
+PY_RESULTS   = $(patsubst testdata/%-graph.txt,outputs/py/%-output.txt,$(wildcard testdata/*-graph.txt))
+
 
 maximalpath: maximalpath.cpp
 	$(CXX) $(CXXFLAGS) $(LIBS) -o $@ $<
 
 
+.PRECIOUS: $(CPP_RESULTS) $(PY_RESULTS)
+.PHONY: cpp-run py-run diff-run
+cpp-run: $(CPP_RESULTS)
+py-run: $(PY_RESULTS)
+
+
+outputs/py/%-output.txt: testdata/%-graph.txt testdata/%-nodes.txt
+	./maximalpath.py $^ > $@
+
+
+outputs/cpp/%-output.txt: testdata/%-graph.txt testdata/%-nodes.txt
+	./maximalpath $^ > $@
+
+
 clean:
 	rm -rf maximalpath *.o *.dSYM
 
+
+outclean:
+	rm -f outputs/*/*
