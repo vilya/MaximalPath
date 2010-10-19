@@ -52,7 +52,7 @@ def PrintNodes(nodes, numPaths, numStarts, filename):
     starts.add(random.choice(nodes))
 
   with open(filename, "w") as f:
-    print >> f, numStarts
+    print >> f, numPaths
     for n in starts:
       print >> f, n
 
