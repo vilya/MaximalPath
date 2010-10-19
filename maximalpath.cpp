@@ -25,14 +25,16 @@ struct Graph {
   // comfortably into an unsigned short (or a signed one).
   std::vector<unsigned short> edges[kMaxNodes];
   std::vector<unsigned short> startNodes;
-  std::vector<bool> visited;
+  bool visited[kMaxNodes];
   unsigned int pathsToPrint;
 
 
-  Graph() : visited(kMaxNodes, false)
+  Graph()
   {
-    for (unsigned int i = 0; i < kMaxNodes; ++i)
+    for (unsigned int i = 0; i < kMaxNodes; ++i) {
       edges[i].reserve(8);
+      visited[i] = false;
+    }
   }
 
 
