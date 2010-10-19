@@ -10,8 +10,8 @@ class Graph(object):
 
 
   def addEdge(self, fromNode, toNode):
-    fromNode = fromNode.lower()
-    toNode = toNode.lower()
+    fromNode = fromNode.upper()
+    toNode = toNode.upper()
 
     self.nodes.add(fromNode)
     self.nodes.add(toNode)
@@ -49,7 +49,7 @@ class Graph(object):
 def MaximalPath(graph, start, num, path=[], count=0):
   try:
     if path == []:
-      start = start.lower()
+      start = start.upper()
       return MaximalPath(graph, start, num, [start], count)
 
     if path[-1] in graph.edges:
@@ -65,7 +65,7 @@ def MaximalPath(graph, start, num, path=[], count=0):
           raise Exception("Aborted")
 
     if count < num:
-      print "".join(path).upper()
+      print "".join(path)
 
     return 1
   except KeyboardInterrupt:
