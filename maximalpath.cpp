@@ -65,9 +65,8 @@ bool ParseNodes(const char* filename, Graph& g);
 const char* NodeLabel(unsigned short node);
 void PrintGraph(const Graph& g);
 void PrintPath(const std::vector<unsigned short>& path);
-//uint64_t PathsFrom(Graph& g, std::vector<unsigned short>& path, uint64_t count);
-//void MaximalPaths(Graph& g);
-uint64_t PathsFrom(Graph& g, unsigned short node, uint64_t count);
+uint64_t PrintPathsFrom(Graph& g, std::vector<unsigned short>& path, uint64_t count);
+uint64_t PathsFrom(Graph& g, unsigned short node);
 void MaximalPaths(Graph& g);
 
 
@@ -157,8 +156,7 @@ void PrintPath(const std::vector<unsigned short>& path)
 }
 
 
-/*
-uint64_t PathsFrom(Graph& g, std::vector<unsigned short>& path, uint64_t count)
+uint64_t PrintPathsFrom(Graph& g, std::vector<unsigned short>& path, uint64_t count)
 {
   unsigned short node = path.back();
   
@@ -167,41 +165,25 @@ uint64_t PathsFrom(Graph& g, std::vector<unsigned short>& path, uint64_t count)
 
   uint64_t newCount = 0;
   for (unsigned int i = 0; i < kNumEdges; ++i) {
+    if (count + newCount >= g.pathsToPrint)
+      return g.pathsToPrint;
+
     unsigned short nextNode = kEdges[i];
     if (g.visited[nextNode])
       continue;
 
     g.visited[nextNode] = true;
     path.push_back(nextNode);
-    newCount += PathsFrom(g, path, count + newCount);
+    newCount += PrintPathsFrom(g, path, count + newCount);
     path.pop_back();
     g.visited[nextNode] = false;
   }
 
-  //if (newCount == 0 && count < g.pathsToPrint)
-  //  PrintPath(path);
+  if (newCount == 0 && count < g.pathsToPrint)
+    PrintPath(path);
   
   return (newCount > 0) ? newCount : 1;
 }
-
-
-void MaximalPaths(Graph& g)
-{
-  std::vector<unsigned short> path;
-  path.reserve(17576);
-  for (unsigned int i = 0; i < g.startNodes.size(); ++i) {
-    printf("First %u lexicographic paths from %s:\n", g.pathsToPrint, NodeLabel(g.startNodes[i]));
-
-    path.push_back(g.startNodes[i]);
-    g.visited[g.startNodes[i]] = true;
-    uint64_t count = PathsFrom(g, path, 0);
-    g.visited[g.startNodes[i]] = false;
-    path.pop_back();
-    
-    printf("Total maximal paths starting from %s: %lu\n\n", NodeLabel(g.startNodes[i]), (unsigned long int)count);
-  }
-}
-*/
 
 
 uint64_t PathsFrom(Graph& g, unsigned short node)
@@ -225,13 +207,20 @@ uint64_t PathsFrom(Graph& g, unsigned short node)
 
 void MaximalPaths(Graph& g)
 {
+  std::vector<unsigned short> path;
+  path.reserve(kMaxNodes);
+
   for (unsigned int i = 0; i < g.startNodes.size(); ++i) {
     printf("First %u lexicographic paths from %s:\n", g.pathsToPrint, NodeLabel(g.startNodes[i]));
-
     g.visited[g.startNodes[i]] = true;
+
+    path.push_back(g.startNodes[i]);
+    PrintPathsFrom(g, path, 0);
+    path.pop_back();
+
     uint64_t count = PathsFrom(g, g.startNodes[i]);
-    g.visited[g.startNodes[i]] = false;
     
+    g.visited[g.startNodes[i]] = false;
     printf("Total maximal paths starting from %s: %lu\n\n", NodeLabel(g.startNodes[i]), (unsigned long int)count);
   }
 }
