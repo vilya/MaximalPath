@@ -3,9 +3,6 @@
 #include <cstdio>
 #include <vector>
 
-#include <tbb/blocked_range.h>
-#include <tbb/parallel_for.h>
-#include <tbb/parallel_reduce.h>
 #include <tbb/tick_count.h>
 
 
@@ -17,24 +14,22 @@ const unsigned int kMaxNodes = 26 * 26 * 26;
 
 
 //
-// Classes
+// Graph class
 //
 
-struct Graph {
+struct Graph
+{
   // Note that node indexes only require 15 bits to represent, so they fit
   // comfortably into an unsigned short (or a signed one).
   std::vector<unsigned short> edges[kMaxNodes];
   std::vector<unsigned short> startNodes;
-  bool visited[kMaxNodes];
   unsigned int pathsToPrint;
 
 
   Graph()
   {
-    for (unsigned int i = 0; i < kMaxNodes; ++i) {
+    for (unsigned int i = 0; i < kMaxNodes; ++i)
       edges[i].reserve(8);
-      visited[i] = false;
-    }
   }
 
 
@@ -66,7 +61,7 @@ const char* NodeLabel(unsigned short node);
 void PrintGraph(const Graph& g);
 void PrintPath(const std::vector<unsigned short>& path);
 uint64_t PrintPathsFrom(Graph& g, std::vector<unsigned short>& path, uint64_t count);
-uint64_t PathsFrom(Graph& g, unsigned short node);
+//uint64_t PathsFrom(Graph& g, unsigned short node);
 void MaximalPaths(Graph& g);
 
 
@@ -156,9 +151,10 @@ void PrintPath(const std::vector<unsigned short>& path)
 }
 
 
-uint64_t PrintPathsFrom(Graph& g, std::vector<unsigned short>& path, uint64_t count)
+uint64_t PrintPathsFrom(Graph& g, std::vector<unsigned short>& path, uint64_t count, bool visited[])
 {
   unsigned short node = path.back();
+  visited[node] = true;
   
   const unsigned int kNumEdges = g.edges[node].size();
   const unsigned short* kEdges = g.edges[node].data();
@@ -166,40 +162,38 @@ uint64_t PrintPathsFrom(Graph& g, std::vector<unsigned short>& path, uint64_t co
   uint64_t newCount = 0;
   for (unsigned int i = 0; i < kNumEdges; ++i) {
     if (count + newCount >= g.pathsToPrint)
-      return g.pathsToPrint;
+      break;
 
     unsigned short nextNode = kEdges[i];
-    if (g.visited[nextNode])
+    if (visited[nextNode])
       continue;
 
-    g.visited[nextNode] = true;
     path.push_back(nextNode);
-    newCount += PrintPathsFrom(g, path, count + newCount);
+    newCount += PrintPathsFrom(g, path, count + newCount, visited);
     path.pop_back();
-    g.visited[nextNode] = false;
   }
 
   if (newCount == 0 && count < g.pathsToPrint)
     PrintPath(path);
   
+  visited[node] = false;
   return (newCount > 0) ? newCount : 1;
 }
 
 
-uint64_t PathsFrom(Graph& g, unsigned short node)
+uint64_t PathsFrom(Graph& g, unsigned short node, bool visited[])
 {
   const unsigned int kNumEdges = g.edges[node].size();
   const unsigned short* kEdges = g.edges[node].data();
 
+  visited[node] = true;
   uint64_t newCount = 0;
   for (unsigned int i = 0; i < kNumEdges; ++i) {
     unsigned short nextNode = kEdges[i];
-    if (g.visited[nextNode])
-      continue;
-    g.visited[nextNode] = true;
-    newCount += PathsFrom(g, nextNode);
-    g.visited[nextNode] = false;
+    if (!visited[nextNode])
+      newCount += PathsFrom(g, nextNode, visited);
   }
+  visited[node] = false;
 
   return newCount ? newCount : 1;
 }
@@ -210,17 +204,18 @@ void MaximalPaths(Graph& g)
   std::vector<unsigned short> path;
   path.reserve(kMaxNodes);
 
+  bool visited[kMaxNodes];
+  memset(visited, 0, sizeof(visited));
+
   for (unsigned int i = 0; i < g.startNodes.size(); ++i) {
     printf("First %u lexicographic paths from %s:\n", g.pathsToPrint, NodeLabel(g.startNodes[i]));
-    g.visited[g.startNodes[i]] = true;
 
     path.push_back(g.startNodes[i]);
-    PrintPathsFrom(g, path, 0);
+    PrintPathsFrom(g, path, 0, visited);
     path.pop_back();
 
-    uint64_t count = PathsFrom(g, g.startNodes[i]);
+    uint64_t count = PathsFrom(g, g.startNodes[i], visited);
     
-    g.visited[g.startNodes[i]] = false;
     printf("Total maximal paths starting from %s: %lu\n\n", NodeLabel(g.startNodes[i]), (unsigned long int)count);
   }
 }
