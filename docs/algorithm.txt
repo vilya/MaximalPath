@@ -38,3 +38,18 @@ Notes
 - May be quicker to have separate functions for counting all paths and for printing the first N paths?
 - Can we calculate prefix and/or suffix path lists for each node as a way to speed things up?
 
+- Parallelise by splitting the tree into subtrees:
+
+      _ a _
+     /     \
+    b       c            a     d     e     f     g
+   / \     / \    ===>  / \ , / \ , / \ , / \ , / \
+  d   e   f   g         b c   h i   j k   l m   n o
+ / \ / \ / \ / \
+ h i j k l m n o
+
+- Total number of nodes in each subtree should be big enough that the cost of
+  evaluating them all on a single thread would outweigh the cost of splitting
+  out the multiple threads.
+
+- Use tbb::parallel_do with a feeder to pass in the subtrees.
