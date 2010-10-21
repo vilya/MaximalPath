@@ -6,7 +6,7 @@
 
 LIBS = -ltbb
 
-CXXFLAGS = -O3 -Wall
+CXXFLAGS = -O3 -funroll-loops -Wall
 CXX = g++
 
 CPP_RESULTS  = $(patsubst testdata/%-graph.txt,outputs/cpp/%-output.txt,$(wildcard testdata/*-graph.txt))

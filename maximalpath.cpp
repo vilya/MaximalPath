@@ -1,16 +1,14 @@
 #include <algorithm>
 #include <cstdlib>
 #include <cstdio>
+#include <list>
+#include <set>
+#include <string>
 #include <vector>
 
+#include <tbb/atomic.h>
+#include <tbb/task_group.h>
 #include <tbb/tick_count.h>
-
-
-//
-// Constants
-//
-
-const unsigned int kMaxNodes = 26 * 26 * 26;
 
 
 //
@@ -21,25 +19,41 @@ struct Graph
 {
   // Note that node indexes only require 15 bits to represent, so they fit
   // comfortably into an unsigned short (or a signed one).
-  std::vector<unsigned short> edges[kMaxNodes];
+  std::vector<std::string> nodes;
+  std::vector<unsigned short>* edges;
   std::vector<unsigned short> startNodes;
   unsigned int pathsToPrint;
 
 
-  Graph()
+  Graph() : nodes(), edges(NULL), startNodes(), pathsToPrint(0)
   {
-    for (unsigned int i = 0; i < kMaxNodes; ++i)
-      edges[i].reserve(8);
   }
 
 
-  inline unsigned short nodeIndex(const char* label) const
+  void setNodes(const std::set<std::string>& newNodes)
   {
-    return ((label[0] - 'A') * 26 + label[1] - 'A') * 26 + label[2] - 'A';
+    nodes.resize(newNodes.size());
+    std::copy(newNodes.begin(), newNodes.end(), nodes.begin());
+
+    edges = new std::vector<unsigned short>[nodes.size()];
+    for (unsigned int i = 0; i < nodes.size(); ++i)
+      edges[i].reserve(10);
   }
 
 
-  inline void addEdge(const char* fromLabel, const char* toLabel)
+  inline unsigned short nodeIndex(const std::string& label) const
+  {
+    return (unsigned short)(std::find(nodes.begin(), nodes.end(), std::string(label)) - nodes.begin());
+  }
+
+
+  inline const std::string& nodeLabel(unsigned short node) const
+  {
+    return nodes[node];
+  }
+
+
+  inline void addEdge(const std::string& fromLabel, const std::string& toLabel)
   {
     unsigned int from = nodeIndex(fromLabel);
     unsigned int to = nodeIndex(toLabel);
@@ -51,17 +65,41 @@ struct Graph
 };
 
 
+struct DFSTree
+{
+  DFSTree* parent;
+  unsigned short node;
+
+
+  DFSTree() : parent(NULL), node(0) {}
+  DFSTree(DFSTree* iparent, unsigned short inode) : parent(iparent), node(inode) {}
+
+
+  bool alreadyVisited(unsigned short nextNode) const
+  {
+    return (node == nextNode) || (parent != NULL && parent->alreadyVisited(nextNode));
+  }
+
+
+  void printPath(const Graph& g) const
+  {
+    if (parent != NULL)
+      parent->printPath(g);
+    printf("%s", g.nodeLabel(node).c_str());
+  }
+};
+
+
 //
 // Forward declarations
 //
 
 bool ParseGraph(const char* filename, Graph& g);
 bool ParseNodes(const char* filename, Graph& g);
-const char* NodeLabel(unsigned short node);
 void PrintGraph(const Graph& g);
-void PrintPath(const std::vector<unsigned short>& path);
-uint64_t PrintPathsFrom(Graph& g, std::vector<unsigned short>& path, uint64_t count);
-//uint64_t PathsFrom(Graph& g, unsigned short node);
+//void PrintPath(const Graph& g, const std::vector<unsigned short>& path);
+//uint64_t PrintPathsFrom(Graph& g, std::vector<unsigned short>& path, uint64_t count, bool visited[]);
+//uint64_t PathsFrom(Graph& g, unsigned short node, const std::vector<bool>& visited);
 void MaximalPaths(Graph& g);
 
 
@@ -78,8 +116,31 @@ bool ParseGraph(const char* filename, Graph& g)
   }
 
   char line[10];
-  while (fgets(line, 10, f) != NULL)
-    g.addEdge(line, line + 3);
+  char label[4] = { 0, 0, 0, 0 };
+  std::set<std::string> labels;
+  while (fgets(line, 10, f) != NULL) {
+    snprintf(label, 4, "%s", line);
+    labels.insert(std::string(label));
+
+    snprintf(label, 4, "%s", line + 3);
+    labels.insert(std::string(label));
+  }
+  g.setNodes(labels);
+
+  fseek(f, 0, SEEK_SET);
+  while (fgets(line, 10, f) != NULL) {
+    snprintf(label, 4, "%s", line);
+    std::string from(label);
+
+    snprintf(label, 4, "%s", line + 3);
+    std::string to(label);
+
+    g.addEdge(from, to);
+  }
+
+  const unsigned int kMaxNodes = g.nodes.size();
+  for (unsigned int i = 0; i < kMaxNodes; ++i)
+    std::sort(g.edges[i].begin(), g.edges[i].end());
 
   fclose(f);
   return true;
@@ -95,67 +156,43 @@ bool ParseNodes(const char* filename, Graph& g)
   }
 
   char line[32];
+  char label[4] = { 0, 0, 0, 0 };
 
   fgets(line, 32, f);
   g.pathsToPrint = (unsigned int)atoi(line);
 
   g.startNodes.clear();
-  while (fgets(line, 5, f) != NULL)
-    g.startNodes.push_back(g.nodeIndex(line));
-
-  for (unsigned int i = 0; i < kMaxNodes; ++i)
-    std::sort(g.edges[i].begin(), g.edges[i].end());
+  while (fgets(line, 5, f) != NULL) {
+    snprintf(label, 4, "%s", line);
+    g.startNodes.push_back(g.nodeIndex(label));
+  }
 
   fclose(f);
   return true;
 }
 
 
-// FIXME: this function is not threadsafe!
-const char* NodeLabel(unsigned short node)
-{
-  static char sLabel[4] = { 0, 0, 0, 0 };
-  sLabel[0] = (node / 676) + 'A';
-  sLabel[1] = ((node / 26) % 26) + 'A';
-  sLabel[2] = (node % 26) + 'A';
-  return sLabel;
-}
-
-
 void PrintGraph(const Graph& g)
 {
-  for (unsigned short i = 0; i < kMaxNodes; ++i) {
+  for (unsigned short i = 0; i < g.nodes.size(); ++i) {
     if (g.edges[i].size() == 0)
       continue;
 
     if (g.edges[i][0] == i)
       printf("dodgy!\n");
 
-    printf("%s: ", NodeLabel(i));
-    printf("%s", NodeLabel(g.edges[i][0]));
+    printf("%s: ", g.nodeLabel(i).c_str());
+    printf("%s", g.nodeLabel(g.edges[i][0]).c_str());
     for (unsigned int j = 1; j < g.edges[i].size(); ++j)
-      printf(", %s", NodeLabel(g.edges[i][j]));
+      printf(", %s", g.nodeLabel(g.edges[i][j]).c_str());
     printf("\n");
   }
 }
 
 
-void PrintPath(const std::vector<unsigned short>& path)
+uint64_t PrintPathsFrom(Graph& g, DFSTree* parent, uint64_t count)
 {
-  const unsigned int kLength = path.size();
-  const unsigned short* kNodes = path.data();
-
-  for (unsigned int i = 0; i < kLength; ++i)
-    printf("%s", NodeLabel(kNodes[i]));
-  printf("\n");
-}
-
-
-uint64_t PrintPathsFrom(Graph& g, std::vector<unsigned short>& path, uint64_t count, bool visited[])
-{
-  unsigned short node = path.back();
-  visited[node] = true;
-  
+  const unsigned short node = parent->node;
   const unsigned int kNumEdges = g.edges[node].size();
   const unsigned short* kEdges = g.edges[node].data();
 
@@ -165,66 +202,152 @@ uint64_t PrintPathsFrom(Graph& g, std::vector<unsigned short>& path, uint64_t co
       break;
 
     unsigned short nextNode = kEdges[i];
-    if (visited[nextNode])
+    if (parent->alreadyVisited(nextNode))
       continue;
 
-    path.push_back(nextNode);
-    newCount += PrintPathsFrom(g, path, count + newCount, visited);
-    path.pop_back();
+    DFSTree child(parent, nextNode);
+    newCount += PrintPathsFrom(g, &child, count + newCount);
   }
 
-  if (newCount == 0 && count < g.pathsToPrint)
-    PrintPath(path);
-  
-  visited[node] = false;
-  return (newCount > 0) ? newCount : 1;
+  if (newCount == 0 && count < g.pathsToPrint) {
+    parent->printPath(g);
+    printf("\n");
+    return 1;
+  }
+  else {
+    return newCount;
+  }
 }
+
+
+struct PathsFromFunctor
+{
+  Graph& g;
+  DFSTree* parent;
+  uint64_t& count;
+
+
+  PathsFromFunctor(Graph& ig, DFSTree* iparent, uint64_t& ocount) :
+    g(ig), parent(iparent), count(ocount)
+  {}
+
+
+  void operator () ()
+  {
+    const unsigned short node = parent->node;
+    const unsigned int kNumEdges = g.edges[node].size();
+    const unsigned short* kEdges = g.edges[node].data();
+
+    const unsigned int kNumChildren = 8; // Must be an exact power of 2.
+    const unsigned int kChildMask = kNumChildren - 1;
+
+    DFSTree children[kNumChildren];
+    uint64_t newCounts[kNumChildren];
+    memset(newCounts, 0, sizeof(newCounts));
+
+    bool maximal = true;
+    tbb::task_group grp;
+    for (unsigned int i = 0; i < kNumEdges; ++i) {
+      unsigned short nextNode = kEdges[i];
+      if (parent->alreadyVisited(nextNode))
+        continue;
+
+      maximal = false;
+      DFSTree& child = children[i & kChildMask];
+      child.parent = parent;
+      child.node = nextNode;
+      grp.run(PathsFromFunctor(g, &child, newCounts[i & kChildMask]));
+
+      if ((i & kChildMask) == kChildMask) {
+        grp.wait();
+        uint64_t sum = 0;
+        for (unsigned int s = 0; s < kNumChildren; ++s) {
+          sum += newCounts[s];
+          newCounts[s] = 0;
+        }
+        count += sum;
+      }
+    }
+
+    if ((kNumEdges & kChildMask) != kChildMask) {
+      grp.wait();
+      uint64_t sum = 0;
+      for (unsigned int s = 0; s < kNumChildren; ++s) {
+        sum += newCounts[s];
+        newCounts[s] = 0;
+      }
+      count += sum;
+    }
+
+    if (maximal)
+      ++count;
+  }
+};
 
 
 uint64_t PathsFrom(Graph& g, unsigned short node, bool visited[])
 {
   const unsigned int kNumEdges = g.edges[node].size();
   const unsigned short* kEdges = g.edges[node].data();
-
   visited[node] = true;
+
   uint64_t newCount = 0;
   for (unsigned int i = 0; i < kNumEdges; ++i) {
     unsigned short nextNode = kEdges[i];
-    if (!visited[nextNode])
-      newCount += PathsFrom(g, nextNode, visited);
-  }
-  visited[node] = false;
+    if (visited[nextNode])
+      continue;
 
+    newCount += PathsFrom(g, nextNode, visited);
+  }
+
+  visited[node] = false;
   return newCount ? newCount : 1;
 }
 
 
-void MaximalPaths(Graph& g)
+void MaximalPaths(Graph& g, bool threaded)
 {
-  std::vector<unsigned short> path;
-  path.reserve(kMaxNodes);
-
-  bool visited[kMaxNodes];
-  memset(visited, 0, sizeof(visited));
+  const unsigned int kMaxNodes = g.nodes.size();
+  bool* visited = NULL;
+  if (!threaded) {
+    visited = new bool[kMaxNodes];
+    memset(visited, 0, sizeof(bool) * kMaxNodes);
+  }
 
   for (unsigned int i = 0; i < g.startNodes.size(); ++i) {
-    printf("First %u lexicographic paths from %s:\n", g.pathsToPrint, NodeLabel(g.startNodes[i]));
+    printf("First %u lexicographic paths from %s:\n", g.pathsToPrint, g.nodeLabel(g.startNodes[i]).c_str());
 
-    path.push_back(g.startNodes[i]);
-    PrintPathsFrom(g, path, 0, visited);
-    path.pop_back();
+    DFSTree root(NULL, g.startNodes[i]);
 
-    uint64_t count = PathsFrom(g, g.startNodes[i], visited);
-    
-    printf("Total maximal paths starting from %s: %lu\n\n", NodeLabel(g.startNodes[i]), (unsigned long int)count);
+    PrintPathsFrom(g, &root, 0);
+
+    uint64_t count = 0;
+    if (threaded) {
+      PathsFromFunctor pathsFrom(g, &root, count);
+      pathsFrom();
+    }
+    else {
+      count = PathsFrom(g, g.startNodes[i], visited);
+    }
+
+    printf("Total maximal paths starting from %s: %lu\n\n",
+        g.nodeLabel(g.startNodes[i]).c_str(), (unsigned long int)count);
   }
 }
 
 
 int main(int argc, char** argv)
 {
+  bool threaded = false;
+  if (argc == 4 && strcmp(argv[1], "-t") == 0) {
+    threaded = true;
+    argv[1] = argv[2];
+    argv[2] = argv[3];
+    --argc;
+  }
+
   if (argc != 3) {
-    fprintf(stderr, "Usage: %s <graph> <nodes>\n", argv[0]);
+    fprintf(stderr, "Usage: %s [-t] <graph> <nodes>\n", argv[0]);
     return -1;
   }
 
@@ -243,9 +366,7 @@ int main(int argc, char** argv)
     return -3;
 
   // Calculate and print the maximal paths
-  MaximalPaths(graph);
-
-  // Print the results.
+  MaximalPaths(graph, threaded);
 
   // Stop timing.
   tbb::tick_count endTime = tbb::tick_count::now();
