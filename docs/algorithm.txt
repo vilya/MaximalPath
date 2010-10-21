@@ -14,7 +14,8 @@ Finding the number of maximal paths
 
 - Depth first search?
   - How to parallelise it efficiently?
-- May be able to accelerate the counting by recording the number of outgoing edges from each node?
+- May be able to accelerate the counting by recording the number of outgoing
+  edges from each node?
 
 
 Data structures
@@ -35,8 +36,10 @@ Data structures
 Notes
 =====
 
-- May be quicker to have separate functions for counting all paths and for printing the first N paths?
-- Can we calculate prefix and/or suffix path lists for each node as a way to speed things up?
+- May be quicker to have separate functions for counting all paths and for
+  printing the first N paths?
+- Can we calculate prefix and/or suffix path lists for each node as a way to
+  speed things up?
 
 - Parallelise by splitting the tree into subtrees:
 
@@ -53,3 +56,9 @@ Notes
   out the multiple threads.
 
 - Use tbb::parallel_do with a feeder to pass in the subtrees.
+
+- The requirement to count all the maximal paths precludes a lot of
+  optimisations.
+
+- The key thing is having a quick test for whether a node has already been
+  visited, without relying on serial behaviour.
