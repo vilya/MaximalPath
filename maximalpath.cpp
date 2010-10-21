@@ -69,15 +69,25 @@ struct DFSTree
 {
   DFSTree* parent;
   unsigned short node;
+  uint64_t visitedCache;
 
 
-  DFSTree() : parent(NULL), node(0) {}
-  DFSTree(DFSTree* iparent, unsigned short inode) : parent(iparent), node(inode) {}
+  DFSTree() :
+    parent(NULL), node(0), visitedCache(0)
+  {
+  }
+
+
+  DFSTree(DFSTree* iparent, unsigned short inode) :
+    parent(iparent), node(inode), visitedCache(iparent->visitedCache)
+  {
+    visitedCache |= ((uint64_t)1 << inode);
+  }
 
 
   bool alreadyVisited(unsigned short nextNode) const
   {
-    return (node == nextNode) || (parent != NULL && parent->alreadyVisited(nextNode));
+    return (nextNode & ((uint64_t)1 << nextNode)) || (node == nextNode) || (parent != NULL && parent->alreadyVisited(nextNode));
   }
 
 
@@ -238,7 +248,7 @@ struct PathsFromFunctor
     const unsigned int kNumEdges = g.edges[node].size();
     const unsigned short* kEdges = g.edges[node].data();
 
-    const unsigned int kNumChildren = 8; // Must be an exact power of 2.
+    const unsigned int kNumChildren = 16; // Must be an exact power of 2.
     const unsigned int kChildMask = kNumChildren - 1;
 
     DFSTree children[kNumChildren];
@@ -256,6 +266,7 @@ struct PathsFromFunctor
       DFSTree& child = children[i & kChildMask];
       child.parent = parent;
       child.node = nextNode;
+      child.visitedCache = parent->visitedCache | ((uint64_t)1 << child.node);
       grp.run(PathsFromFunctor(g, &child, newCounts[i & kChildMask]));
 
       if ((i & kChildMask) == kChildMask) {
@@ -317,7 +328,9 @@ void MaximalPaths(Graph& g, bool threaded)
   for (unsigned int i = 0; i < g.startNodes.size(); ++i) {
     printf("First %u lexicographic paths from %s:\n", g.pathsToPrint, g.nodeLabel(g.startNodes[i]).c_str());
 
-    DFSTree root(NULL, g.startNodes[i]);
+    DFSTree root;
+    root.node = g.startNodes[i];
+    root.visitedCache = ((uint64_t)1 << root.node);
 
     PrintPathsFrom(g, &root, 0);
 
