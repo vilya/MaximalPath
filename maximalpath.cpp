@@ -2,12 +2,14 @@
 #include <cstdlib>
 #include <cstdio>
 #include <list>
+#include <queue>
 #include <set>
 #include <string>
 #include <vector>
 
-#include <tbb/atomic.h>
-#include <tbb/task_group.h>
+#include <tbb/blocked_range.h>
+#include <tbb/compat/thread>
+#include <tbb/parallel_reduce.h>
 #include <tbb/tick_count.h>
 
 
@@ -65,29 +67,31 @@ struct Graph
 };
 
 
+//
+// DFSTree struct
+//
+
 struct DFSTree
 {
   DFSTree* parent;
   unsigned short node;
-  uint64_t visitedCache;
 
 
   DFSTree() :
-    parent(NULL), node(0), visitedCache(0)
+    parent(NULL), node(0)
   {
   }
 
 
   DFSTree(DFSTree* iparent, unsigned short inode) :
-    parent(iparent), node(inode), visitedCache(iparent->visitedCache)
+    parent(iparent), node(inode)
   {
-    visitedCache |= ((uint64_t)1 << inode);
   }
 
 
   bool alreadyVisited(unsigned short nextNode) const
   {
-    return (nextNode & ((uint64_t)1 << nextNode)) || (node == nextNode) || (parent != NULL && parent->alreadyVisited(nextNode));
+    return (node == nextNode) || (parent != NULL && parent->alreadyVisited(nextNode));
   }
 
 
@@ -98,6 +102,146 @@ struct DFSTree
     printf("%s", g.nodeLabel(node).c_str());
   }
 };
+
+
+//
+// CountPathsFunctor class
+//
+
+// For use with tbb::parallel_reduce...
+class CountPathsFunctor
+{
+public:
+  CountPathsFunctor(const Graph& g) :
+    _kMaxNodes(g.nodes.size()),
+    _graph(g),
+    _visited(NULL),
+    _count(0)
+  {
+    //fprintf(stderr, "Constructing a CountPathsFunctor (0x%p)...\n", this);
+    _visited = new bool[_kMaxNodes];
+  }
+
+
+  CountPathsFunctor(const CountPathsFunctor& c, tbb::split) :
+    _kMaxNodes(c._kMaxNodes),
+    _graph(c._graph),
+    _visited(NULL),
+    _count(0)
+  {
+    //fprintf(stderr, "Copy constructing a CountPathsFunctor (0x%p)...\n", this);
+    _visited = new bool[_kMaxNodes];
+    memcpy(_visited, c._visited, sizeof(bool) * _kMaxNodes);
+  }
+
+
+  ~CountPathsFunctor()
+  {
+    //fprintf(stderr, "deleting a CountPathsFunctor (0x%p)...\n", this);
+    delete _visited;
+  }
+
+
+  void operator() (const tbb::blocked_range<DFSTree**>& r)
+  {
+    for (DFSTree** prefix = r.begin(); prefix != r.end(); ++prefix) {
+      memset(_visited, 0, sizeof(bool) * _kMaxNodes);
+      DFSTree* tmp = (*prefix)->parent;
+      while (tmp != NULL) {
+        _visited[tmp->node] = true;
+        tmp = tmp->parent;
+      }
+      _count += pathsFrom((*prefix)->node);
+    }
+  }
+
+
+  void join(CountPathsFunctor& rhs)
+  {
+    _count += rhs._count;
+  }
+
+
+  uint64_t getCount() const
+  {
+    return _count;
+  }
+
+
+  void resetCount()
+  {
+    _count = 0;
+  }
+
+
+private:
+  uint64_t pathsFrom(unsigned short node)
+  {
+    const unsigned int kNumEdges = _graph.edges[node].size();
+    const unsigned short* kEdges = _graph.edges[node].data();
+    _visited[node] = true;
+
+    uint64_t newCount = 0;
+    for (unsigned int i = 0; i < kNumEdges; ++i) {
+      unsigned short nextNode = kEdges[i];
+      if (_visited[nextNode])
+        continue;
+
+      newCount += pathsFrom(nextNode);
+    }
+
+    _visited[node] = false;
+    return newCount ? newCount : 1;
+  }
+
+
+private:
+  const unsigned short _kMaxNodes;
+  const Graph& _graph;
+  bool* _visited;
+  uint64_t _count;
+};
+
+
+uint64_t CountPaths(Graph& g, unsigned short node)
+{
+  const unsigned int kNumPrefixes = std::thread::hardware_concurrency() * 4;
+
+  uint64_t count = 0;
+
+  std::list<DFSTree*> prefixes;
+  prefixes.push_back(new DFSTree(NULL, node));
+  while (!prefixes.empty() && prefixes.size() < kNumPrefixes) {
+    DFSTree* parent = prefixes.front();
+    prefixes.pop_front();
+
+    node = parent->node;
+    const unsigned int kNumEdges = g.edges[node].size();
+    const unsigned short* kEdges = g.edges[node].data();
+
+    bool maximal = true;
+    for (unsigned int i = 0; i < kNumEdges; ++i) {
+      unsigned short nextNode = kEdges[i];
+      if (parent->alreadyVisited(nextNode))
+        continue;
+
+      maximal = false;
+      prefixes.push_back(new DFSTree(parent, nextNode));
+    }
+
+    if (maximal)
+      ++count;
+  }
+
+  std::vector<DFSTree*> prefixVec(prefixes.size());
+  std::copy(prefixes.begin(), prefixes.end(), prefixVec.begin());
+
+  CountPathsFunctor counter(g);
+  tbb::parallel_reduce(tbb::blocked_range<DFSTree**>(prefixVec.data(), prefixVec.data() + prefixVec.size()), counter);
+  count += counter.getCount();
+
+  return count;
+}
 
 
 //
@@ -230,118 +374,16 @@ uint64_t PrintPathsFrom(Graph& g, DFSTree* parent, uint64_t count)
 }
 
 
-struct PathsFromFunctor
+void MaximalPaths(Graph& g)
 {
-  Graph& g;
-  DFSTree* parent;
-  uint64_t& count;
-
-
-  PathsFromFunctor(Graph& ig, DFSTree* iparent, uint64_t& ocount) :
-    g(ig), parent(iparent), count(ocount)
-  {}
-
-
-  void operator () ()
-  {
-    const unsigned short node = parent->node;
-    const unsigned int kNumEdges = g.edges[node].size();
-    const unsigned short* kEdges = g.edges[node].data();
-
-    const unsigned int kNumChildren = 16; // Must be an exact power of 2.
-    const unsigned int kChildMask = kNumChildren - 1;
-
-    DFSTree children[kNumChildren];
-    uint64_t newCounts[kNumChildren];
-    memset(newCounts, 0, sizeof(newCounts));
-
-    bool maximal = true;
-    tbb::task_group grp;
-    for (unsigned int i = 0; i < kNumEdges; ++i) {
-      unsigned short nextNode = kEdges[i];
-      if (parent->alreadyVisited(nextNode))
-        continue;
-
-      maximal = false;
-      DFSTree& child = children[i & kChildMask];
-      child.parent = parent;
-      child.node = nextNode;
-      child.visitedCache = parent->visitedCache | ((uint64_t)1 << child.node);
-      grp.run(PathsFromFunctor(g, &child, newCounts[i & kChildMask]));
-
-      if ((i & kChildMask) == kChildMask) {
-        grp.wait();
-        uint64_t sum = 0;
-        for (unsigned int s = 0; s < kNumChildren; ++s) {
-          sum += newCounts[s];
-          newCounts[s] = 0;
-        }
-        count += sum;
-      }
-    }
-
-    if ((kNumEdges & kChildMask) != kChildMask) {
-      grp.wait();
-      uint64_t sum = 0;
-      for (unsigned int s = 0; s < kNumChildren; ++s) {
-        sum += newCounts[s];
-        newCounts[s] = 0;
-      }
-      count += sum;
-    }
-
-    if (maximal)
-      ++count;
-  }
-};
-
-
-uint64_t PathsFrom(Graph& g, unsigned short node, bool visited[])
-{
-  const unsigned int kNumEdges = g.edges[node].size();
-  const unsigned short* kEdges = g.edges[node].data();
-  visited[node] = true;
-
-  uint64_t newCount = 0;
-  for (unsigned int i = 0; i < kNumEdges; ++i) {
-    unsigned short nextNode = kEdges[i];
-    if (visited[nextNode])
-      continue;
-
-    newCount += PathsFrom(g, nextNode, visited);
-  }
-
-  visited[node] = false;
-  return newCount ? newCount : 1;
-}
-
-
-void MaximalPaths(Graph& g, bool threaded)
-{
-  const unsigned int kMaxNodes = g.nodes.size();
-  bool* visited = NULL;
-  if (!threaded) {
-    visited = new bool[kMaxNodes];
-    memset(visited, 0, sizeof(bool) * kMaxNodes);
-  }
-
   for (unsigned int i = 0; i < g.startNodes.size(); ++i) {
     printf("First %u lexicographic paths from %s:\n", g.pathsToPrint, g.nodeLabel(g.startNodes[i]).c_str());
 
     DFSTree root;
     root.node = g.startNodes[i];
-    root.visitedCache = ((uint64_t)1 << root.node);
 
     PrintPathsFrom(g, &root, 0);
-
-    uint64_t count = 0;
-    if (threaded) {
-      PathsFromFunctor pathsFrom(g, &root, count);
-      pathsFrom();
-    }
-    else {
-      count = PathsFrom(g, g.startNodes[i], visited);
-    }
+    uint64_t count = CountPaths(g, g.startNodes[i]);
 
     printf("Total maximal paths starting from %s: %lu\n\n",
         g.nodeLabel(g.startNodes[i]).c_str(), (unsigned long int)count);
@@ -351,16 +393,8 @@ void MaximalPaths(Graph& g, bool threaded)
 
 int main(int argc, char** argv)
 {
-  bool threaded = false;
-  if (argc == 4 && strcmp(argv[1], "-t") == 0) {
-    threaded = true;
-    argv[1] = argv[2];
-    argv[2] = argv[3];
-    --argc;
-  }
-
   if (argc != 3) {
-    fprintf(stderr, "Usage: %s [-t] <graph> <nodes>\n", argv[0]);
+    fprintf(stderr, "Usage: %s <graph> <nodes>\n", argv[0]);
     return -1;
   }
 
@@ -379,7 +413,7 @@ int main(int argc, char** argv)
     return -3;
 
   // Calculate and print the maximal paths
-  MaximalPaths(graph, threaded);
+  MaximalPaths(graph);
 
   // Stop timing.
   tbb::tick_count endTime = tbb::tick_count::now();
