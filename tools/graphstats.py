@@ -2,8 +2,8 @@
 import sys
 
 def main():
-  if len(sys.argv) != 2:
-    print >> sys.stderr, "Usage: %s <graph>" % sys.argv[0]
+  if len(sys.argv) not in (2, 3):
+    print >> sys.stderr, "Usage: %s <graph> [ <nodes> ]" % sys.argv[0]
     sys.exit(-1)
   
   graph = {}
@@ -39,6 +39,16 @@ def main():
   )
   print "%d self edges" % sum([1 for node, edges in graph.iteritems() if node in edges])
   print "%d duplicate edges" % duplicates
+
+  if len(sys.argv) == 3:
+    with open(sys.argv[2]) as f:
+      numPaths = int(f.next().strip())
+      starts = [line.strip() for line in f]
+    invalidStarts = [s for s in starts if s not in graph]
+
+    print "%d start nodes" % len(starts)
+    if invalidStarts:
+      print "WARNING: %d invalid start nodes: %s" % (len(invalidStarts), ", ".join(invalidStarts))
 
 
 if __name__ == '__main__':
