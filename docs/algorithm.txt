@@ -62,3 +62,4 @@ Notes
 
 - The key thing is having a quick test for whether a node has already been
   visited, without relying on serial behaviour.
+- Or... remove each node from the graph as you visit it!
