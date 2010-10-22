@@ -344,11 +344,13 @@ void PrintGraph(const Graph& g)
 }
 
 
-uint64_t PrintPathsFrom(Graph& g, DFSTree* parent, uint64_t count)
+uint64_t PrintPathsFrom(Graph& g, DFSTree* parent, uint64_t count, bool* visited)
 {
   const unsigned short node = parent->node;
   const unsigned int kNumEdges = g.edges[node].size();
   const unsigned short* kEdges = g.edges[node].data();
+
+  visited[node] = true;
 
   uint64_t newCount = 0;
   for (unsigned int i = 0; i < kNumEdges; ++i) {
@@ -356,38 +358,43 @@ uint64_t PrintPathsFrom(Graph& g, DFSTree* parent, uint64_t count)
       break;
 
     unsigned short nextNode = kEdges[i];
-    if (parent->alreadyVisited(nextNode))
+    if (visited[nextNode])
       continue;
 
     DFSTree child(parent, nextNode);
-    newCount += PrintPathsFrom(g, &child, count + newCount);
+    newCount += PrintPathsFrom(g, &child, count + newCount, visited);
   }
 
   if (newCount == 0 && count < g.pathsToPrint) {
     parent->printPath(g);
     printf("\n");
-    return 1;
+    newCount = 1;
   }
-  else {
-    return newCount;
-  }
+
+  visited[node] = false;
+  return newCount;
 }
 
 
 void MaximalPaths(Graph& g)
 {
+  bool* printVisited = new bool[g.nodes.size()];
+  memset(printVisited, 0, sizeof(bool) * g.nodes.size());
+
   for (unsigned int i = 0; i < g.startNodes.size(); ++i) {
     printf("First %u lexicographic paths from %s:\n", g.pathsToPrint, g.nodeLabel(g.startNodes[i]).c_str());
 
     DFSTree root;
     root.node = g.startNodes[i];
 
-    PrintPathsFrom(g, &root, 0);
+    PrintPathsFrom(g, &root, 0, printVisited);
     uint64_t count = CountPaths(g, g.startNodes[i]);
 
     printf("Total maximal paths starting from %s: %lu\n\n",
         g.nodeLabel(g.startNodes[i]).c_str(), (unsigned long int)count);
   }
+
+  delete[] printVisited;
 }
 
 
