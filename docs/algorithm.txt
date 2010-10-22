@@ -1,65 +1,63 @@
 Overall
 =======
 
-- Parse graph & build adjacency matrix.
-- Get the number of paths, N, to print from the nodes input file.
-- For each remaining line in the nodes input file:
-  - Parse a start node S
+- Parse graph & build adjacency lists.
+- Parse the nodes file to get the number of paths to print and a list of start
+  nodes.
+- For each start node:
   - Find the first N maximal paths from the start node S and print them out
   - Calculate the number of maximal paths from the start node and print it out.
 
 
-Finding the number of maximal paths
+Counting the number of maximal paths
 ===================================
 
-- Depth first search?
-  - How to parallelise it efficiently?
-- May be able to accelerate the counting by recording the number of outgoing
-  edges from each node?
+- Hybrid breadth-first and depth-first search.
+- Breadth first to find a list of starting points for the depth-first search.
+- Depth first search in parallel for each of the starting points.
+
+- Breadth first search.
+- The list of starting points has to be large enough to be worth parallelising.
+- First, push the start node onto the list.
+- Build up the list by repeatedly popping the node at the front of the list and
+  replacing it with all of it's children until the list gets big enough.
+- Big enough is a multiple of the number of hardware threads available
+  (currently 4 times).
+
+- Depth first search walks the node graph recursively.
+- Flag the current node as part of the path.
+- Get the edge list for the current node.
+- For each "next node" in the edge list:
+  - If it's already part of the current path, ignore it.
+  - Otherwise, do a depth first search from it.
+- If the edge list didn't contain any new nodes, we've found a maximal path.
 
 
 Data structures
 ===============
 
-- Graph data structure
-  - Traversal must be as fast as possible.
-  - Adjacency matrix is likely to be the quickest.
-  - Using a bit-field representation, would only require about 11 Mb for the
-    largest allowed graph.
+- Graph
+  - Iterating over children of a node must be as fast as possible.
+  - Using a semi-sparse representation: a per-node adjacency list (not an
+    adjacency matrix).
 
-- Path data structure
-  - Need to be able to quickly check whether a node is already on the path.
-  - Order of nodes in the path is important
-  - Store as a combination of bit-mask and node list?
-
+- Path
+  - Need to be able to find out what nodes are on the path, in what order.
+  - Checking whether a particular node is already on the path should be quick.
+  - Use a tree representation, so we can share common initial subpaths.
+  - Use a bottom-up tree representation (each tree node points to it's parent,
+    parents don't point to their children).
+  - Use a separate boolean array to record whether a node is already on the
+    path. There's one of these per thread.
+  
 
 Notes
 =====
 
-- May be quicker to have separate functions for counting all paths and for
-  printing the first N paths?
-- Can we calculate prefix and/or suffix path lists for each node as a way to
-  speed things up?
+- Counting all the maximal paths, instead of finding some "best" path (longest,
+  shortest, whatever), means that there are very few algorithmic optimisations
+  we can make.
+- It comes down to a brute-force approach, where depth first search wins.
+- The trick is to parallelise the depth-first search efficiently, which means
+  the coarsest granularity that allows us to keep all threads busy.
 
-- Parallelise by splitting the tree into subtrees:
-
-      _ a _
-     /     \
-    b       c            a     d     e     f     g
-   / \     / \    ===>  / \ , / \ , / \ , / \ , / \
-  d   e   f   g         b c   h i   j k   l m   n o
- / \ / \ / \ / \
- h i j k l m n o
-
-- Total number of nodes in each subtree should be big enough that the cost of
-  evaluating them all on a single thread would outweigh the cost of splitting
-  out the multiple threads.
-
-- Use tbb::parallel_do with a feeder to pass in the subtrees.
-
-- The requirement to count all the maximal paths precludes a lot of
-  optimisations.
-
-- The key thing is having a quick test for whether a node has already been
-  visited, without relying on serial behaviour.
-- Or... remove each node from the graph as you visit it!
