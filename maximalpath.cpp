@@ -1,8 +1,8 @@
 #include <algorithm>
 #include <cstdlib>
 #include <cstdio>
+#include <cstring>
 #include <list>
-#include <queue>
 #include <set>
 #include <string>
 #include <vector>
@@ -312,7 +312,9 @@ bool ParseNodes(const char* filename, Graph& g)
   char line[32];
   char label[4] = { 0, 0, 0, 0 };
 
-  fgets(line, 32, f);
+  if(!fgets(line, 32, f))
+    return false;
+
   g.pathsToPrint = (unsigned int)atoi(line);
 
   g.startNodes.clear();
