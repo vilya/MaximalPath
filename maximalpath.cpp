@@ -118,7 +118,6 @@ public:
     _visited(NULL),
     _count(0)
   {
-    //fprintf(stderr, "Constructing a CountPathsFunctor (0x%p)...\n", this);
     _visited = new bool[_kMaxNodes];
   }
 
@@ -129,7 +128,6 @@ public:
     _visited(NULL),
     _count(0)
   {
-    //fprintf(stderr, "Copy constructing a CountPathsFunctor (0x%p)...\n", this);
     _visited = new bool[_kMaxNodes];
     memcpy(_visited, c._visited, sizeof(bool) * _kMaxNodes);
   }
@@ -137,7 +135,6 @@ public:
 
   ~CountPathsFunctor()
   {
-    //fprintf(stderr, "deleting a CountPathsFunctor (0x%p)...\n", this);
     delete _visited;
   }
 
