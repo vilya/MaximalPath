@@ -1,0 +1,19 @@
+- Run the printing in parallel with the counting.
+- Replace recursion with iteration, see if it speeds things up.
+
+- Optimise the file parsing:
+  - mmap the graph file
+  - quick error check: test whether the length is a multiple of 7 (each line
+    should be 3 chars for the from node, 3 chars for the to node and a
+    newline).
+  - multithreaded processing of the mmapped region? -> only if it's big enough!
+  - it's unlikely to be big enough for this problem.
+
+- Optimise the output:
+  - preallocate a nice large temp buffer.
+  - write into the buffer
+  - flush to stdout only when the buffer gets full.
+
+  - allocate a line buffer of size 3 * N + 1 (where N is the number of nodes)
+  - fill that incrementally as we walk the tree
+  - when we find a maximal path, flush it.
