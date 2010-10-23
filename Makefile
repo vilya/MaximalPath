@@ -13,7 +13,7 @@ CPP_RESULTS  = $(patsubst testdata/%-graph.txt,outputs/cpp/%-output.txt,$(wildca
 PY_RESULTS   = $(patsubst testdata/%-graph.txt,outputs/py/%-output.txt,$(wildcard testdata/*-graph.txt))
 
 
-maximalpath: maximalpath.cpp
+maximalpath: maximalpath.cpp maximalpath.h
 	$(CXX) $(CXXFLAGS) $(LIBS) -o $@ $<
 
 
