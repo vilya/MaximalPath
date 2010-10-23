@@ -80,8 +80,10 @@ namespace mxp {
   bool ParseNodes(const char* filename, Graph& g);
   void PrintGraph(const Graph& g);
 
-  uint64_t CountPaths(Graph& g, unsigned short node);
   uint64_t PrintPathsFrom(Graph& g, DFSTree* parent, uint64_t count, bool* visited);
+
+  void PrintPaths(Graph& g, unsigned short node);
+  uint64_t CountPaths(Graph& g, unsigned short node);
   void MaximalPaths(Graph& g);
 
 } // namespace mxp

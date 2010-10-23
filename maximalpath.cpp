@@ -6,7 +6,6 @@
 #include <cstring>
 #include <list>
 
-#include <tbb/blocked_range.h>
 #include <tbb/compat/thread>
 #include <tbb/parallel_reduce.h>
 #include <tbb/tick_count.h>
@@ -144,11 +143,12 @@ namespace mxp {
   }
 
 
+  /*
   void CountPathsFunctor::resetCount()
   {
     _count = 0;
   }
-
+  */
 
   uint64_t CountPathsFunctor::pathsFrom(unsigned short node)
   {
@@ -174,48 +174,6 @@ namespace mxp {
   // Functions
   //
 
-  uint64_t CountPaths(Graph& g, unsigned short node)
-  {
-    const unsigned int kNumPrefixes = std::thread::hardware_concurrency() * 4;
-  
-    uint64_t count = 0;
-  
-    std::list<DFSTree*> prefixes;
-    prefixes.push_back(new DFSTree(NULL, node));
-    while (!prefixes.empty() && prefixes.size() < kNumPrefixes) {
-      DFSTree* parent = prefixes.front();
-      prefixes.pop_front();
-  
-      node = parent->node;
-      const unsigned int kNumEdges = g.edges[node].size();
-      const unsigned short* kEdges = g.edges[node].data();
-  
-      bool maximal = true;
-      for (unsigned int i = 0; i < kNumEdges; ++i) {
-        unsigned short nextNode = kEdges[i];
-        if (parent->alreadyVisited(nextNode))
-          continue;
-  
-        maximal = false;
-        prefixes.push_back(new DFSTree(parent, nextNode));
-      }
-  
-      if (maximal)
-        ++count;
-    }
-  
-    std::vector<DFSTree*> prefixVec(prefixes.size());
-    std::copy(prefixes.begin(), prefixes.end(), prefixVec.begin());
-  
-    CountPathsFunctor counter(g);
-    tbb::parallel_reduce(tbb::blocked_range<DFSTree**>(
-          prefixVec.data(), prefixVec.data() + prefixVec.size()), counter);
-    count += counter.getCount();
-  
-    return count;
-  }
-  
-  
   bool ParseGraph(const char* filename, Graph& g)
   {
     FILE* f = fopen(filename, "r");
@@ -331,27 +289,76 @@ namespace mxp {
     visited[node] = false;
     return newCount;
   }
-  
-  
-  void MaximalPaths(Graph& g)
+
+
+  void PrintPaths(Graph& g, unsigned short startNode)
   {
     bool* printVisited = new bool[g.nodes.size()];
     memset(printVisited, 0, sizeof(bool) * g.nodes.size());
   
+    DFSTree root;
+    root.node = startNode;
+  
+    PrintPathsFrom(g, &root, 0, printVisited);
+  }
+  
+  
+  uint64_t CountPaths(Graph& g, unsigned short node)
+  {
+    const unsigned int kNumPrefixes = std::thread::hardware_concurrency() * 4;
+  
+    uint64_t count = 0;
+  
+    std::list<DFSTree*> prefixes;
+    prefixes.push_back(new DFSTree(NULL, node));
+    while (!prefixes.empty() && prefixes.size() < kNumPrefixes) {
+      DFSTree* parent = prefixes.front();
+      prefixes.pop_front();
+  
+      node = parent->node;
+      const unsigned int kNumEdges = g.edges[node].size();
+      const unsigned short* kEdges = g.edges[node].data();
+  
+      bool maximal = true;
+      for (unsigned int i = 0; i < kNumEdges; ++i) {
+        unsigned short nextNode = kEdges[i];
+        if (parent->alreadyVisited(nextNode))
+          continue;
+  
+        maximal = false;
+        prefixes.push_back(new DFSTree(parent, nextNode));
+      }
+  
+      if (maximal)
+        ++count;
+    }
+  
+    std::vector<DFSTree*> prefixVec(prefixes.size());
+    std::copy(prefixes.begin(), prefixes.end(), prefixVec.begin());
+  
+    CountPathsFunctor counter(g);
+    tbb::parallel_reduce(tbb::blocked_range<DFSTree**>(
+          prefixVec.data(), prefixVec.data() + prefixVec.size()), counter);
+    count += counter.getCount();
+  
+    return count;
+  }
+  
+
+  void MaximalPaths(Graph& g)
+  {
     for (unsigned int i = 0; i < g.startNodes.size(); ++i) {
       printf("First %u lexicographic paths from %s:\n", g.pathsToPrint, g.nodeLabel(g.startNodes[i]).c_str());
   
-      DFSTree root;
-      root.node = g.startNodes[i];
-  
-      PrintPathsFrom(g, &root, 0, printVisited);
+      std::thread th(PrintPaths, g, g.startNodes[i]);
       uint64_t count = CountPaths(g, g.startNodes[i]);
+      th.join();
   
       printf("Total maximal paths starting from %s: %lu\n\n",
           g.nodeLabel(g.startNodes[i]).c_str(), (unsigned long int)count);
     }
   
-    delete[] printVisited;
+    //delete[] printVisited;
   }
 
 
