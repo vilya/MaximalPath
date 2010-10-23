@@ -1,4 +1,3 @@
-- Run the printing in parallel with the counting.
 - Replace recursion with iteration, see if it speeds things up.
 
 - Optimise the file parsing:
