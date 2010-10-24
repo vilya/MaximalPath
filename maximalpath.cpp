@@ -259,13 +259,16 @@ namespace mxp {
   }
   
   
-  uint64_t PrintPathsFrom(Graph& g, DFSTree* parent, uint64_t count, bool* visited)
+  uint64_t PrintPathsFrom(Graph& g, unsigned short node, uint64_t count, bool* visited, char* path, unsigned int depth)
   {
-    const unsigned short node = parent->node;
     const unsigned int kNumEdges = g.edges[node].size();
     const unsigned short* kEdges = g.edges[node].data();
-  
+    const char* kNodeLabel = g.nodes[node].c_str();
+
+    unsigned int pathIndex = depth * 3;
     visited[node] = true;
+    strncpy(path + pathIndex, kNodeLabel, 3);
+    path[pathIndex + 3] = '\0';
   
     uint64_t newCount = 0;
     for (unsigned int i = 0; i < kNumEdges; ++i) {
@@ -276,13 +279,11 @@ namespace mxp {
       if (visited[nextNode])
         continue;
   
-      DFSTree child(parent, nextNode);
-      newCount += PrintPathsFrom(g, &child, count + newCount, visited);
+      newCount += PrintPathsFrom(g, nextNode, count + newCount, visited, path, depth + 1);
     }
   
     if (newCount == 0 && count < g.pathsToPrint) {
-      parent->printPath(g);
-      printf("\n");
+      printf("%s\n", path);
       newCount = 1;
     }
   
@@ -294,12 +295,10 @@ namespace mxp {
   void PrintPaths(Graph& g, unsigned short startNode)
   {
     bool* printVisited = new bool[g.nodes.size()];
+    char* path = new char[g.nodes.size() * 3 + 1];
     memset(printVisited, 0, sizeof(bool) * g.nodes.size());
   
-    DFSTree root;
-    root.node = startNode;
-  
-    PrintPathsFrom(g, &root, 0, printVisited);
+    PrintPathsFrom(g, startNode, 0, printVisited, path, 0);
   }
   
   
