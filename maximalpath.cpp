@@ -143,13 +143,6 @@ namespace mxp {
   }
 
 
-  /*
-  void CountPathsFunctor::resetCount()
-  {
-    _count = 0;
-  }
-  */
-
   uint64_t CountPathsFunctor::pathsFrom(unsigned short node)
   {
     const unsigned int kNumEdges = _graph.edges[node].size();
