@@ -349,8 +349,6 @@ namespace mxp {
       printf("Total maximal paths starting from %s: %lu\n\n",
           g.nodeLabel(g.startNodes[i]).c_str(), (unsigned long int)count);
     }
-  
-    //delete[] printVisited;
   }
 
 
