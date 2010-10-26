@@ -27,19 +27,19 @@ namespace mxp {
     nodes.resize(newNodes.size());
     std::copy(newNodes.begin(), newNodes.end(), nodes.begin());
 
-    edges = new std::vector<unsigned short>[nodes.size()];
+    edges = new std::vector<nodeid_t>[nodes.size()];
     for (unsigned int i = 0; i < nodes.size(); ++i)
       edges[i].reserve(10);
   }
 
 
-  unsigned short Graph::nodeIndex(const std::string& label) const
+  nodeid_t Graph::nodeIndex(const std::string& label) const
   {
-    return (unsigned short)(std::find(nodes.begin(), nodes.end(), std::string(label)) - nodes.begin());
+    return (nodeid_t)(std::find(nodes.begin(), nodes.end(), std::string(label)) - nodes.begin());
   }
 
 
-  const std::string& Graph::nodeLabel(unsigned short node) const
+  const std::string& Graph::nodeLabel(nodeid_t node) const
   {
     return nodes[node];
   }
@@ -57,28 +57,28 @@ namespace mxp {
 
 
   //
-  // DFSTree struct
+  // SearchTree struct
   //
 
-  DFSTree::DFSTree() :
+  SearchTree::SearchTree() :
     parent(NULL), node(0)
   {
   }
 
 
-  DFSTree::DFSTree(DFSTree* iparent, unsigned short inode) :
+  SearchTree::SearchTree(SearchTree* iparent, nodeid_t inode) :
     parent(iparent), node(inode)
   {
   }
 
 
-  bool DFSTree::alreadyVisited(unsigned short nextNode) const
+  bool SearchTree::alreadyVisited(nodeid_t nextNode) const
   {
     return (node == nextNode) || (parent != NULL && parent->alreadyVisited(nextNode));
   }
 
 
-  void DFSTree::printPath(const Graph& g) const
+  void SearchTree::printPath(const Graph& g) const
   {
     if (parent != NULL)
       parent->printPath(g);
@@ -117,11 +117,11 @@ namespace mxp {
   }
 
 
-  void CountPathsFunctor::operator() (const tbb::blocked_range<DFSTree**>& r)
+  void CountPathsFunctor::operator() (const tbb::blocked_range<SearchTree**>& r)
   {
-    for (DFSTree** prefix = r.begin(); prefix != r.end(); ++prefix) {
+    for (SearchTree** prefix = r.begin(); prefix != r.end(); ++prefix) {
       memset(_visited, 0, sizeof(bool) * _kMaxNodes);
-      DFSTree* tmp = (*prefix)->parent;
+      SearchTree* tmp = (*prefix)->parent;
       while (tmp != NULL) {
         _visited[tmp->node] = true;
         tmp = tmp->parent;
@@ -143,15 +143,15 @@ namespace mxp {
   }
 
 
-  uint64_t CountPathsFunctor::pathsFrom(unsigned short node)
+  uint64_t CountPathsFunctor::pathsFrom(nodeid_t node)
   {
     const unsigned int kNumEdges = _graph.edges[node].size();
-    const unsigned short* kEdges = _graph.edges[node].data();
+    const nodeid_t* kEdges = _graph.edges[node].data();
     _visited[node] = true;
 
     uint64_t newCount = 0;
     for (unsigned int i = 0; i < kNumEdges; ++i) {
-      unsigned short nextNode = kEdges[i];
+      nodeid_t nextNode = kEdges[i];
       if (_visited[nextNode])
         continue;
 
@@ -236,7 +236,7 @@ namespace mxp {
   
   void PrintGraph(const Graph& g)
   {
-    for (unsigned short i = 0; i < g.nodes.size(); ++i) {
+    for (nodeid_t i = 0; i < g.nodes.size(); ++i) {
       if (g.edges[i].size() == 0)
         continue;
   
@@ -252,10 +252,10 @@ namespace mxp {
   }
   
   
-  uint64_t PrintPathsFrom(Graph& g, unsigned short node, uint64_t count, bool* visited, char* path, unsigned int depth)
+  uint64_t PrintPathsFrom(Graph& g, nodeid_t node, uint64_t count, bool* visited, char* path, unsigned int depth)
   {
     const unsigned int kNumEdges = g.edges[node].size();
-    const unsigned short* kEdges = g.edges[node].data();
+    const nodeid_t* kEdges = g.edges[node].data();
     const char* kNodeLabel = g.nodes[node].c_str();
 
     unsigned int pathIndex = depth * 3;
@@ -268,7 +268,7 @@ namespace mxp {
       if (count + newCount >= g.pathsToPrint)
         break;
   
-      unsigned short nextNode = kEdges[i];
+      nodeid_t nextNode = kEdges[i];
       if (visited[nextNode])
         continue;
   
@@ -285,7 +285,7 @@ namespace mxp {
   }
 
 
-  void PrintPaths(Graph& g, unsigned short startNode)
+  void PrintPaths(Graph& g, nodeid_t startNode)
   {
     bool* printVisited = new bool[g.nodes.size()];
     char* path = new char[g.nodes.size() * 3 + 1];
@@ -295,41 +295,41 @@ namespace mxp {
   }
   
   
-  uint64_t CountPaths(Graph& g, unsigned short node)
+  uint64_t CountPaths(Graph& g, nodeid_t node)
   {
     const unsigned int kNumPrefixes = std::thread::hardware_concurrency() * 4;
   
     uint64_t count = 0;
   
-    std::list<DFSTree*> prefixes;
-    prefixes.push_back(new DFSTree(NULL, node));
+    std::list<SearchTree*> prefixes;
+    prefixes.push_back(new SearchTree(NULL, node));
     while (!prefixes.empty() && prefixes.size() < kNumPrefixes) {
-      DFSTree* parent = prefixes.front();
+      SearchTree* parent = prefixes.front();
       prefixes.pop_front();
   
       node = parent->node;
       const unsigned int kNumEdges = g.edges[node].size();
-      const unsigned short* kEdges = g.edges[node].data();
+      const nodeid_t* kEdges = g.edges[node].data();
   
       bool maximal = true;
       for (unsigned int i = 0; i < kNumEdges; ++i) {
-        unsigned short nextNode = kEdges[i];
+        nodeid_t nextNode = kEdges[i];
         if (parent->alreadyVisited(nextNode))
           continue;
   
         maximal = false;
-        prefixes.push_back(new DFSTree(parent, nextNode));
+        prefixes.push_back(new SearchTree(parent, nextNode));
       }
   
       if (maximal)
         ++count;
     }
   
-    std::vector<DFSTree*> prefixVec(prefixes.size());
+    std::vector<SearchTree*> prefixVec(prefixes.size());
     std::copy(prefixes.begin(), prefixes.end(), prefixVec.begin());
   
     CountPathsFunctor counter(g);
-    tbb::parallel_reduce(tbb::blocked_range<DFSTree**>(
+    tbb::parallel_reduce(tbb::blocked_range<SearchTree**>(
           prefixVec.data(), prefixVec.data() + prefixVec.size()), counter);
     count += counter.getCount();
   

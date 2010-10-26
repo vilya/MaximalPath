@@ -10,6 +10,13 @@
 namespace mxp {
 
   //
+  // Typedefs
+  //
+
+  typedef unsigned short nodeid_t;
+
+
+  //
   // Data structures
   //
 
@@ -18,28 +25,28 @@ namespace mxp {
     // Note that node indexes only require 15 bits to represent, so they fit
     // comfortably into an unsigned short (or a signed one).
     std::vector<std::string> nodes;
-    std::vector<unsigned short>* edges;
-    std::vector<unsigned short> startNodes;
+    std::vector<nodeid_t>* edges;
+    std::vector<nodeid_t> startNodes;
     unsigned int pathsToPrint;
 
     Graph();
 
     void setNodes(const std::set<std::string>& newNodes);
-    inline unsigned short nodeIndex(const std::string& label) const;
-    inline const std::string& nodeLabel(unsigned short node) const;
+    inline nodeid_t nodeIndex(const std::string& label) const;
+    inline const std::string& nodeLabel(nodeid_t node) const;
     inline void addEdge(const std::string& fromLabel, const std::string& toLabel);
   };
 
 
-  struct DFSTree
+  struct SearchTree
   {
-    DFSTree* parent;
-    unsigned short node;
+    SearchTree* parent;
+    nodeid_t node;
 
-    DFSTree();
-    DFSTree(DFSTree* iparent, unsigned short inode);
+    SearchTree();
+    SearchTree(SearchTree* iparent, nodeid_t inode);
 
-    bool alreadyVisited(unsigned short nextNode) const;
+    bool alreadyVisited(nodeid_t nextNode) const;
     void printPath(const Graph& g) const;
   };
 
@@ -55,17 +62,17 @@ namespace mxp {
     CountPathsFunctor(const CountPathsFunctor& c, tbb::split);
     ~CountPathsFunctor();
   
-    void operator() (const tbb::blocked_range<DFSTree**>& r);
+    void operator() (const tbb::blocked_range<SearchTree**>& r);
     void join(CountPathsFunctor& rhs);
 
     uint64_t getCount() const;
     void resetCount();
   
   private:
-    uint64_t pathsFrom(unsigned short node);
+    uint64_t pathsFrom(nodeid_t node);
   
   private:
-    const unsigned short _kMaxNodes;
+    const nodeid_t _kMaxNodes;
     const Graph& _graph;
     bool* _visited;
     uint64_t _count;
@@ -80,10 +87,10 @@ namespace mxp {
   bool ParseNodes(const char* filename, Graph& g);
   void PrintGraph(const Graph& g);
 
-  uint64_t PrintPathsFrom(Graph& g, unsigned short node, uint64_t count, bool* visited, char* path, unsigned int depth);
+  uint64_t PrintPathsFrom(Graph& g, nodeid_t node, uint64_t count, bool* visited, char* path, unsigned int depth);
 
-  void PrintPaths(Graph& g, unsigned short node);
-  uint64_t CountPaths(Graph& g, unsigned short node);
+  void PrintPaths(Graph& g, nodeid_t node);
+  uint64_t CountPaths(Graph& g, nodeid_t node);
   void MaximalPaths(Graph& g);
 
 
