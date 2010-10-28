@@ -297,7 +297,7 @@ namespace mxp {
   
   uint64_t CountPaths(Graph& g, nodeid_t node)
   {
-    const unsigned int kNumPrefixes = std::thread::hardware_concurrency() * 4;
+    const unsigned int kNumPrefixes = std::thread::hardware_concurrency() * 8;
   
     uint64_t count = 0;
   
