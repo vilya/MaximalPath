@@ -51,8 +51,8 @@ namespace mxp {
     unsigned int to = nodeIndex(toLabel);
     if (std::find(edges[from].begin(), edges[from].end(), to) != edges[from].end())
       return;
-    edges[from].push_back(to);
-    edges[to].push_back(from);
+    edges[from].push_back((nodeid_t)to);
+    edges[to].push_back((nodeid_t)from);
   }
 
 
