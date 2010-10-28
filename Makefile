@@ -7,7 +7,7 @@
 LIBS = -ltbb
 
 CXXFLAGS = -O3 -funroll-loops -Wall
-CXX = g++
+CXX = icpc
 
 CPP_RESULTS  = $(patsubst testdata/%-graph.txt,outputs/cpp/%-output.txt,$(wildcard testdata/*-graph.txt))
 PY_RESULTS   = $(patsubst testdata/%-graph.txt,outputs/py/%-output.txt,$(wildcard testdata/*-graph.txt))
