@@ -1,6 +1,7 @@
 .*.swp
 maximalpath
 *.dSYM
+*.ods#
 MaximalPath.config
 MaximalPath.creator
 MaximalPath.creator.user
