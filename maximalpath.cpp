@@ -155,7 +155,21 @@ namespace mxp {
       if (_visited[nextNode])
         continue;
 
-      newCount += pathsFrom(nextNode);
+      const unsigned int kNumSubEdges = _graph.edges[nextNode].size();
+      const nodeid_t* kSubEdges = _graph.edges[nextNode].data();
+      _visited[nextNode] = true;
+
+      uint64_t nextNewCount = 0;
+      for (unsigned int j = 0; j < kNumSubEdges; ++j) {
+        nodeid_t nextNextNode = kSubEdges[j];
+        if (_visited[nextNextNode])
+          continue;
+
+        nextNewCount += pathsFrom(nextNextNode);
+      }
+
+      _visited[nextNode] = false;
+      newCount += (nextNewCount ? nextNewCount : 1);
     }
 
     _visited[node] = false;
@@ -174,39 +188,39 @@ namespace mxp {
       fprintf(stderr, "Error opening %s\n", filename);
       return false;
     }
-  
+
     char line[10];
     char label[4] = { 0, 0, 0, 0 };
     std::set<std::string> labels;
     while (fgets(line, 10, f) != NULL) {
       snprintf(label, 4, "%s", line);
       labels.insert(std::string(label));
-  
+
       snprintf(label, 4, "%s", line + 3);
       labels.insert(std::string(label));
     }
     g.setNodes(labels);
-  
+
     fseek(f, 0, SEEK_SET);
     while (fgets(line, 10, f) != NULL) {
       snprintf(label, 4, "%s", line);
       std::string from(label);
-  
+
       snprintf(label, 4, "%s", line + 3);
       std::string to(label);
-  
+
       g.addEdge(from, to);
     }
-  
+
     const unsigned int kMaxNodes = g.nodes.size();
     for (unsigned int i = 0; i < kMaxNodes; ++i)
       std::sort(g.edges[i].begin(), g.edges[i].end());
-  
+
     fclose(f);
     return true;
   }
-  
-  
+
+
   bool ParseNodes(const char* filename, Graph& g)
   {
     FILE* f = fopen(filename, "r");
@@ -214,35 +228,35 @@ namespace mxp {
       fprintf(stderr, "Error opening %s\n", filename);
       return false;
     }
-  
+
     char line[32];
     char label[4] = { 0, 0, 0, 0 };
-  
+
     if(!fgets(line, 32, f))
       return false;
-  
+
     g.pathsToPrint = (unsigned int)atoi(line);
-  
+
     g.startNodes.clear();
     while (fgets(line, 5, f) != NULL) {
       snprintf(label, 4, "%s", line);
       g.startNodes.push_back(g.nodeIndex(label));
     }
-  
+
     fclose(f);
     return true;
   }
-  
-  
+
+
   void PrintGraph(const Graph& g)
   {
     for (nodeid_t i = 0; i < g.nodes.size(); ++i) {
       if (g.edges[i].size() == 0)
         continue;
-  
+
       if (g.edges[i][0] == i)
         printf("dodgy!\n");
-  
+
       printf("%s: ", g.nodeLabel(i).c_str());
       printf("%s", g.nodeLabel(g.edges[i][0]).c_str());
       for (unsigned int j = 1; j < g.edges[i].size(); ++j)
@@ -250,8 +264,8 @@ namespace mxp {
       printf("\n");
     }
   }
-  
-  
+
+
   uint64_t PrintPathsFrom(Graph& g, nodeid_t node, uint64_t count, bool* visited, char* path, unsigned int depth)
   {
     const unsigned int kNumEdges = g.edges[node].size();
@@ -262,24 +276,24 @@ namespace mxp {
     visited[node] = true;
     strncpy(path + pathIndex, kNodeLabel, 3);
     path[pathIndex + 3] = '\0';
-  
+
     uint64_t newCount = 0;
     for (unsigned int i = 0; i < kNumEdges; ++i) {
       if (count + newCount >= g.pathsToPrint)
         break;
-  
+
       nodeid_t nextNode = kEdges[i];
       if (visited[nextNode])
         continue;
-  
+
       newCount += PrintPathsFrom(g, nextNode, count + newCount, visited, path, depth + 1);
     }
-  
+
     if (newCount == 0 && count < g.pathsToPrint) {
       printf("%s\n", path);
       newCount = 1;
     }
-  
+
     visited[node] = false;
     return newCount;
   }
@@ -290,62 +304,62 @@ namespace mxp {
     bool* printVisited = new bool[g.nodes.size()];
     char* path = new char[g.nodes.size() * 3 + 1];
     memset(printVisited, 0, sizeof(bool) * g.nodes.size());
-  
+
     PrintPathsFrom(g, startNode, 0, printVisited, path, 0);
   }
-  
-  
+
+
   uint64_t CountPaths(Graph& g, nodeid_t node)
   {
     const unsigned int kNumPrefixes = std::thread::hardware_concurrency() * 8;
-  
+
     uint64_t count = 0;
-  
+
     std::list<SearchTree*> prefixes;
     prefixes.push_back(new SearchTree(NULL, node));
     while (!prefixes.empty() && prefixes.size() < kNumPrefixes) {
       SearchTree* parent = prefixes.front();
       prefixes.pop_front();
-  
+
       node = parent->node;
       const unsigned int kNumEdges = g.edges[node].size();
       const nodeid_t* kEdges = g.edges[node].data();
-  
+
       bool maximal = true;
       for (unsigned int i = 0; i < kNumEdges; ++i) {
         nodeid_t nextNode = kEdges[i];
         if (parent->alreadyVisited(nextNode))
           continue;
-  
+
         maximal = false;
         prefixes.push_back(new SearchTree(parent, nextNode));
       }
-  
+
       if (maximal)
         ++count;
     }
-  
+
     std::vector<SearchTree*> prefixVec(prefixes.size());
     std::copy(prefixes.begin(), prefixes.end(), prefixVec.begin());
-  
+
     CountPathsFunctor counter(g);
     tbb::parallel_reduce(tbb::blocked_range<SearchTree**>(
           prefixVec.data(), prefixVec.data() + prefixVec.size()), counter);
     count += counter.getCount();
-  
+
     return count;
   }
-  
+
 
   void MaximalPaths(Graph& g)
   {
     for (unsigned int i = 0; i < g.startNodes.size(); ++i) {
       printf("First %u lexicographic paths from %s:\n", g.pathsToPrint, g.nodeLabel(g.startNodes[i]).c_str());
-  
+
       std::thread th(PrintPaths, g, g.startNodes[i]);
       uint64_t count = CountPaths(g, g.startNodes[i]);
       th.join();
-  
+
       printf("Total maximal paths starting from %s: %lu\n\n",
           g.nodeLabel(g.startNodes[i]).c_str(), (unsigned long int)count);
     }
@@ -364,7 +378,7 @@ int main(int argc, char** argv)
 
   // Start timing.
   tbb::tick_count startTime = tbb::tick_count::now();
-  
+
   mxp::Graph graph;
 
   // Parse the graph.
