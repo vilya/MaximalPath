@@ -1,6 +1,7 @@
 #ifndef maximalpath_h
 #define maximalpath_h
 
+#include <cstring>
 #include <set>
 #include <string>
 #include <vector>
@@ -14,18 +15,87 @@ namespace mxp {
   //
 
   typedef unsigned short nodeid_t;
+  typedef bool visited_t;
 
 
   //
   // Data structures
   //
 
+  template <typename T>
+  class FastVector
+  {
+  public:
+    FastVector() :  _size(0), _capacity(8), _data(new T[10])
+    {}
+
+    ~FastVector()
+    {
+      delete[] _data;
+    }
+
+    inline unsigned int size() const
+    {
+      return _size;
+    }
+
+    inline const T& operator [] (unsigned int index) const
+    {
+      return _data[index];
+    }
+
+    inline T& operator [] (unsigned int index)
+    {
+      return _data[index];
+    }
+
+    inline void reserve(unsigned int numItems)
+    {
+      if (numItems > _capacity) {
+        T* newData = new T[numItems];
+        memcpy(newData, _data, sizeof(T) * numItems);
+        delete[] _data;
+        _data = newData;
+        _capacity = numItems;
+      }
+    }
+
+    inline T* begin()
+    {
+      return _data;
+    }
+
+    inline T* end()
+    {
+      return _data + _size;
+    }
+
+    inline void push_back(const T& val)
+    {
+      if (_size == _capacity)
+        reserve(_capacity * 2);
+      _data[_size] = val;
+      ++_size;
+    }
+
+    inline T* data()
+    {
+      return _data;
+    }
+
+  private:
+    unsigned int _size;
+    unsigned int _capacity;
+    T* _data;
+  };
+
+
   struct Graph
   {
     // Note that node indexes only require 15 bits to represent, so they fit
     // comfortably into an unsigned short (or a signed one).
     std::vector<std::string> nodes;
-    std::vector<nodeid_t>* edges;
+    FastVector<nodeid_t>* edges;
     std::vector<nodeid_t> startNodes;
     unsigned int pathsToPrint;
 
@@ -61,20 +131,20 @@ namespace mxp {
     CountPathsFunctor(const Graph& g);
     CountPathsFunctor(const CountPathsFunctor& c, tbb::split);
     ~CountPathsFunctor();
-  
+
     void operator() (const tbb::blocked_range<SearchTree**>& r);
     void join(CountPathsFunctor& rhs);
 
     uint64_t getCount() const;
     void resetCount();
-  
+
   private:
     uint64_t pathsFrom(nodeid_t node);
-  
+
   private:
     const nodeid_t _kMaxNodes;
     const Graph& _graph;
-    bool* _visited;
+    visited_t* _visited;
     uint64_t _count;
   };
 
@@ -87,7 +157,7 @@ namespace mxp {
   bool ParseNodes(const char* filename, Graph& g);
   void PrintGraph(const Graph& g);
 
-  uint64_t PrintPathsFrom(Graph& g, nodeid_t node, uint64_t count, bool* visited, char* path, unsigned int depth);
+  uint64_t PrintPathsFrom(Graph& g, nodeid_t node, uint64_t count, visited_t* visited, char* path, unsigned int depth);
 
   void PrintPaths(Graph& g, nodeid_t node);
   uint64_t CountPaths(Graph& g, nodeid_t node);

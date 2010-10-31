@@ -27,9 +27,7 @@ namespace mxp {
     nodes.resize(newNodes.size());
     std::copy(newNodes.begin(), newNodes.end(), nodes.begin());
 
-    edges = new std::vector<nodeid_t>[nodes.size()];
-    for (unsigned int i = 0; i < nodes.size(); ++i)
-      edges[i].reserve(10);
+    edges = new FastVector<nodeid_t>[nodes.size()];
   }
 
 
@@ -96,7 +94,7 @@ namespace mxp {
     _visited(NULL),
     _count(0)
   {
-    _visited = new bool[_kMaxNodes];
+    _visited = new visited_t[_kMaxNodes];
   }
 
 
@@ -106,21 +104,21 @@ namespace mxp {
     _visited(NULL),
     _count(0)
   {
-    _visited = new bool[_kMaxNodes];
-    memcpy(_visited, c._visited, sizeof(bool) * _kMaxNodes);
+    _visited = new visited_t[_kMaxNodes];
+    memcpy(_visited, c._visited, sizeof(visited_t) * _kMaxNodes);
   }
 
 
   CountPathsFunctor::~CountPathsFunctor()
   {
-    delete _visited;
+    delete[] _visited;
   }
 
 
   void CountPathsFunctor::operator() (const tbb::blocked_range<SearchTree**>& r)
   {
     for (SearchTree** prefix = r.begin(); prefix != r.end(); ++prefix) {
-      memset(_visited, 0, sizeof(bool) * _kMaxNodes);
+      memset(_visited, 0, sizeof(visited_t) * _kMaxNodes);
       SearchTree* tmp = (*prefix)->parent;
       while (tmp != NULL) {
         _visited[tmp->node] = true;
@@ -266,7 +264,7 @@ namespace mxp {
   }
 
 
-  uint64_t PrintPathsFrom(Graph& g, nodeid_t node, uint64_t count, bool* visited, char* path, unsigned int depth)
+  uint64_t PrintPathsFrom(Graph& g, nodeid_t node, uint64_t count, visited_t* visited, char* path, unsigned int depth)
   {
     const unsigned int kNumEdges = g.edges[node].size();
     const nodeid_t* kEdges = g.edges[node].data();
@@ -301,9 +299,9 @@ namespace mxp {
 
   void PrintPaths(Graph& g, nodeid_t startNode)
   {
-    bool* printVisited = new bool[g.nodes.size()];
+    visited_t* printVisited = new visited_t[g.nodes.size()];
     char* path = new char[g.nodes.size() * 3 + 1];
-    memset(printVisited, 0, sizeof(bool) * g.nodes.size());
+    memset(printVisited, 0, sizeof(visited_t) * g.nodes.size());
 
     PrintPathsFrom(g, startNode, 0, printVisited, path, 0);
   }
