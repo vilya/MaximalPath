@@ -1,6 +1,7 @@
 #ifndef maximalpath_h
 #define maximalpath_h
 
+#include <cstdlib>
 #include <cstring>
 #include <set>
 #include <string>
@@ -26,12 +27,14 @@ namespace mxp {
   class FastVector
   {
   public:
-    FastVector() :  _size(0), _capacity(8), _data(new T[10])
-    {}
+    FastVector() :  _size(0), _capacity(8)
+    {
+      _data = (T*)malloc(sizeof(T) * _capacity);
+    }
 
     ~FastVector()
     {
-      delete[] _data;
+      free(_data);
     }
 
     inline unsigned int size() const
@@ -52,10 +55,7 @@ namespace mxp {
     inline void reserve(unsigned int numItems)
     {
       if (numItems > _capacity) {
-        T* newData = new T[numItems];
-        memcpy(newData, _data, sizeof(T) * numItems);
-        delete[] _data;
-        _data = newData;
+        _data = (T*)realloc(_data, sizeof(T)* numItems);
         _capacity = numItems;
       }
     }
